@@ -95,11 +95,6 @@ func main() {
 			EnvVar: "PLUGIN_IPV6",
 		},
 		cli.BoolFlag{
-			Name:   "daemon.experimental",
-			Usage:  "docker daemon Experimental mode",
-			EnvVar: "PLUGIN_EXPERIMENTAL",
-		},
-		cli.BoolFlag{
 			Name:   "daemon.debug",
 			Usage:  "docker daemon executes in debug mode",
 			EnvVar: "PLUGIN_DEBUG,DOCKER_LAUNCH_DEBUG",
@@ -158,10 +153,17 @@ func main() {
 			Usage:  "build target",
 			EnvVar: "PLUGIN_TARGET",
 		},
-		cli.StringSliceFlag{
+		cli.GenericFlag{
 			Name:   "cache-from",
-			Usage:  "images to consider as cache sources",
+			Usage:  "cache import location",
 			EnvVar: "PLUGIN_CACHE_FROM",
+			Value:  new(docker.CustomStringSliceFlag),
+		},
+		cli.GenericFlag{
+			Name:   "cache-to",
+			Usage:  "cache export location",
+			EnvVar: "PLUGIN_CACHE_TO",
+			Value:  new(docker.CustomStringSliceFlag),
 		},
 		cli.BoolFlag{
 			Name:   "squash",
@@ -279,6 +281,26 @@ func main() {
 			Usage:  "ssh agent key to use",
 			EnvVar: "PLUGIN_SSH_AGENT_KEY",
 		},
+		cli.StringFlag{
+			Name:   "builder-name",
+			EnvVar: "PLUGIN_BUILDER_NAME",
+		},
+		cli.StringFlag{
+			Name:   "builder-driver",
+			EnvVar: "PLUGIN_BUILDER_DRIVER",
+		},
+		cli.StringFlag{
+			Name:   "builder-driver-opts",
+			EnvVar: "PLUGIN_BUILDER_DRIVER_OPTS",
+		},
+		cli.StringFlag{
+			Name:   "builder-remote-conn",
+			EnvVar: "PLUGIN_BUILDER_REMOTE_CONN",
+		},
+		cli.BoolFlag{
+			Name:   "buildx-load",
+			EnvVar: "PLUGIN_BUILDX_LOAD",
+		},
 	}
 
 	if err := app.Run(os.Args); err != nil {
@@ -309,7 +331,8 @@ func run(c *cli.Context) error {
 			Target:      c.String("target"),
 			Squash:      c.Bool("squash"),
 			Pull:        c.BoolT("pull-image"),
-			CacheFrom:   c.StringSlice("cache-from"),
+			CacheFrom:   c.Generic("cache-from").(*docker.CustomStringSliceFlag).GetValue(),
+			CacheTo:     c.Generic("cache-to").(*docker.CustomStringSliceFlag).GetValue(),
 			Compress:    c.Bool("compress"),
 			Repo:        c.String("repo"),
 			Labels:      c.StringSlice("custom-labels"),
@@ -324,6 +347,7 @@ func run(c *cli.Context) error {
 			Quiet:       c.Bool("quiet"),
 			Platform:    c.String("platform"),
 			SSHAgentKey: c.String("ssh-agent-key"),
+			BuildxLoad:  c.Bool("buildx-load"),
 		},
 		Daemon: docker.Daemon{
 			Registry:      c.String("docker.registry"),
@@ -338,7 +362,12 @@ func run(c *cli.Context) error {
 			DNS:           c.StringSlice("daemon.dns"),
 			DNSSearch:     c.StringSlice("daemon.dns-search"),
 			MTU:           c.String("daemon.mtu"),
-			Experimental:  c.Bool("daemon.experimental"),
+		},
+		Builder: docker.Builder{
+			Name:       c.String("builder-name"),
+			Driver:     c.String("builder-driver"),
+			DriverOpts: c.String("builder-driver-opts"),
+			RemoteConn: c.String("builder-remote-conn"),
 		},
 	}
 
