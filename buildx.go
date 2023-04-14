@@ -10,7 +10,7 @@ const (
 	remoteDriver          = "remote"
 )
 
-func commandCreateBuildxBuilder(builder Builder) *exec.Cmd {
+func cmdSetupBuildx(builder Builder) *exec.Cmd {
 	args := []string{"buildx", "create", "--use", "--driver", builder.Driver}
 	if builder.Name != "" {
 		args = append(args, "--name", builder.Name)
@@ -24,12 +24,12 @@ func commandCreateBuildxBuilder(builder Builder) *exec.Cmd {
 	return exec.Command(dockerExe, args...)
 }
 
-func commandInspectBuildxBuilder(name string) *exec.Cmd {
+func cmdInspectBuildx(name string) *exec.Cmd {
 	args := []string{"buildx", "inspect", "--bootstrap", "--builder", name}
 	return exec.Command(dockerExe, args...)
 }
 
-func commandRemoveBuildxBuilder(name string) *exec.Cmd {
+func cmdRemoveBuildx(name string) *exec.Cmd {
 	args := []string{"buildx", "rm", name}
 	return exec.Command(dockerExe, args...)
 }

@@ -179,19 +179,19 @@ func (p Plugin) Exec() error {
 	}
 
 	if p.Builder.Driver != "" && p.Builder.Driver != defaultDriver {
-		createCmd := commandCreateBuildxBuilder(p.Builder)
+		createCmd := cmdSetupBuildx(p.Builder)
 		raw, err := createCmd.Output()
 		if err != nil {
 			return fmt.Errorf("error while creating buildx builder: %s and err: %s", string(raw), err)
 		}
 		p.Builder.Name = strings.TrimSuffix(string(raw), "\n")
 
-		inspectCmd := commandInspectBuildxBuilder(p.Builder.Name)
+		inspectCmd := cmdInspectBuildx(p.Builder.Name)
 		if err := inspectCmd.Run(); err != nil {
 			return fmt.Errorf("error while bootstraping buildx builder: %s", err)
 		}
 
-		removeCmd := commandRemoveBuildxBuilder(p.Builder.Name)
+		removeCmd := cmdRemoveBuildx(p.Builder.Name)
 		defer func() {
 			removeCmd.Run()
 		}()
@@ -325,6 +325,9 @@ func commandBuildx(build Build, builder Builder, dryrun bool) *exec.Cmd {
 	}
 	for _, arg := range build.CacheFrom {
 		args = append(args, "--cache-from", arg)
+	}
+	for _, arg := range build.CacheTo {
+		args = append(args, "--cache-to", arg)
 	}
 	for _, arg := range build.ArgsEnv {
 		addProxyValue(&build, arg)
