@@ -1040,8 +1040,3 @@ steps:
     when:
       event:
         - tag
-depends_on:
-  - windows-1809
-  - windows-ltsc2022
-  - linux-amd64-docker
-  - linux-arm64-docker
