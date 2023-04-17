@@ -25,7 +25,13 @@ type (
 		DNSSearch     []string // Docker daemon dns search domain
 		MTU           string   // Docker daemon mtu setting
 		IPv6          bool     // Docker daemon IPv6 networking
-		Experimental  bool     // Docker daemon enable experimental mode
+	}
+
+	Builder struct {
+		Name       string // Buildx builder name
+		Driver     string // Buildx driver type
+		DriverOpts string // Buildx driver opts
+		RemoteConn string // Buildx remote connection endpoint
 	}
 
 	// Login defines Docker login parameters.
@@ -49,7 +55,8 @@ type (
 		Target      string   // Docker build target
 		Squash      bool     // Docker build squash
 		Pull        bool     // Docker build pull
-		CacheFrom   []string // Docker build cache-from
+		CacheFrom   []string // Docker buildx cache-from
+		CacheTo     []string // Docker buildx cache-to
 		Compress    bool     // Docker build compress
 		Repo        string   // Docker build repository
 		LabelSchema []string // label-schema Label map
@@ -65,16 +72,18 @@ type (
 		Platform    string   // Docker build platform
 		SSHAgentKey string   // Docker build ssh agent key
 		SSHKeyPath  string   // Docker build ssh key path
+		BuildxLoad  bool     // Docker buildx --load
 	}
 
 	// Plugin defines the Docker plugin parameters.
 	Plugin struct {
-		Login    Login  // Docker login configuration
-		Build    Build  // Docker build configuration
-		Daemon   Daemon // Docker daemon configuration
-		Dryrun   bool   // Docker push is skipped
-		Cleanup  bool   // Docker purge is enabled
-		CardPath string // Card path to write file to
+		Login    Login   // Docker login configuration
+		Build    Build   // Docker build configuration
+		Builder  Builder // Docker Buildx builder configuration
+		Daemon   Daemon  // Docker daemon configuration
+		Dryrun   bool    // Docker push is skipped
+		Cleanup  bool    // Docker purge is enabled
+		CardPath string  // Card path to write file to
 	}
 
 	Card []struct {
@@ -164,9 +173,28 @@ func (p Plugin) Exec() error {
 		}
 	}
 
-	if p.Build.Squash && !p.Daemon.Experimental {
-		fmt.Println("Squash build flag is only available when Docker deamon is started with experimental flag. Ignoring...")
-		p.Build.Squash = false
+	// cache export feature is currently not supported for docker driver hence we have to create docker-container driver
+	if len(p.Build.CacheTo) > 0 && (p.Builder.Driver == "" || p.Builder.Driver == defaultDriver) {
+		p.Builder.Driver = dockerContainerDriver
+	}
+
+	if p.Builder.Driver != "" && p.Builder.Driver != defaultDriver {
+		createCmd := cmdSetupBuildx(p.Builder)
+		raw, err := createCmd.Output()
+		if err != nil {
+			return fmt.Errorf("error while creating buildx builder: %s and err: %s", string(raw), err)
+		}
+		p.Builder.Name = strings.TrimSuffix(string(raw), "\n")
+
+		inspectCmd := cmdInspectBuildx(p.Builder.Name)
+		if err := inspectCmd.Run(); err != nil {
+			return fmt.Errorf("error while bootstraping buildx builder: %s", err)
+		}
+
+		removeCmd := cmdRemoveBuildx(p.Builder.Name)
+		defer func() {
+			removeCmd.Run()
+		}()
 	}
 
 	// add proxy build args
@@ -176,29 +204,8 @@ func (p Plugin) Exec() error {
 	cmds = append(cmds, commandVersion()) // docker version
 	cmds = append(cmds, commandInfo())    // docker info
 
-	// pre-pull cache images
-	for _, img := range p.Build.CacheFrom {
-		cmds = append(cmds, commandPull(img))
-	}
-
-	// setup for using ssh agent (https://docs.docker.com/develop/develop-images/build_enhancements/#using-ssh-to-access-private-data-in-builds)
-	if p.Build.SSHAgentKey != "" {
-		var sshErr error
-		p.Build.SSHKeyPath, sshErr = writeSSHPrivateKey(p.Build.SSHAgentKey)
-		if sshErr != nil {
-			return sshErr
-		}
-	}
-
-	cmds = append(cmds, commandBuild(p.Build)) // docker build
-
-	for _, tag := range p.Build.Tags {
-		cmds = append(cmds, commandTag(p.Build, tag)) // docker tag
-
-		if !p.Dryrun {
-			cmds = append(cmds, commandPush(p.Build, tag)) // docker push
-		}
-	}
+	// Command to build, tag and push
+	cmds = append(cmds, commandBuildx(p.Build, p.Builder, p.Dryrun)) // docker build
 
 	// execute all commands in batch mode.
 	for _, cmd := range cmds {
@@ -207,9 +214,7 @@ func (p Plugin) Exec() error {
 		trace(cmd)
 
 		err := cmd.Run()
-		if err != nil && isCommandPull(cmd.Args) {
-			fmt.Printf("Could not pull cache-from image %s. Ignoring...\n", cmd.Args[2])
-		} else if err != nil && isCommandPrune(cmd.Args) {
+		if err != nil && isCommandPrune(cmd.Args) {
 			fmt.Printf("Could not prune system containers. Ignoring...\n")
 		} else if err != nil && isCommandRmi(cmd.Args) {
 			fmt.Printf("Could not remove image %s. Ignoring...\n", cmd.Args[2])
@@ -283,15 +288,28 @@ func commandInfo() *exec.Cmd {
 	return exec.Command(dockerExe, "info")
 }
 
-// helper function to create the docker build command.
-func commandBuild(build Build) *exec.Cmd {
+// helper function to create the docker buildx command.
+func commandBuildx(build Build, builder Builder, dryrun bool) *exec.Cmd {
 	args := []string{
+		"buildx",
 		"build",
 		"--rm=true",
 		"-f", build.Dockerfile,
-		"-t", build.Name,
 	}
 
+	if builder.Name != "" {
+		args = append(args, "--builder", builder.Name)
+	}
+	for _, t := range build.Tags {
+		args = append(args, "-t", fmt.Sprintf("%s:%s", build.Repo, t))
+	}
+	if dryrun {
+		if build.BuildxLoad {
+			args = append(args, "--load")
+		}
+	} else {
+		args = append(args, "--push")
+	}
 	args = append(args, build.Context)
 	if build.Squash {
 		args = append(args, "--squash")
@@ -307,6 +325,9 @@ func commandBuild(build Build) *exec.Cmd {
 	}
 	for _, arg := range build.CacheFrom {
 		args = append(args, "--cache-from", arg)
+	}
+	for _, arg := range build.CacheTo {
+		args = append(args, "--cache-to", arg)
 	}
 	for _, arg := range build.ArgsEnv {
 		addProxyValue(&build, arg)
@@ -365,11 +386,6 @@ func commandBuild(build Build) *exec.Cmd {
 		for _, label := range build.Labels {
 			args = append(args, "--label", label)
 		}
-	}
-
-	// we need to enable buildkit, for secret support and ssh agent support
-	if build.Secret != "" || len(build.SecretEnvs) > 0 || len(build.SecretFiles) > 0 || build.SSHAgentKey != "" {
-		os.Setenv("DOCKER_BUILDKIT", "1")
 	}
 	return exec.Command(dockerExe, args...)
 }
@@ -496,9 +512,6 @@ func commandDaemon(daemon Daemon) *exec.Cmd {
 	}
 	if len(daemon.MTU) != 0 {
 		args = append(args, "--mtu", daemon.MTU)
-	}
-	if daemon.Experimental {
-		args = append(args, "--experimental")
 	}
 	return exec.Command(dockerdExe, args...)
 }
