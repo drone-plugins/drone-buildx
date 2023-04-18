@@ -8,7 +8,7 @@ import (
 	"os"
 )
 
-const dockerExe = "/usr/bin/docker"
+const dockerExe = "docker"
 const dockerdExe = "/usr/bin/dockerd"
 const dockerHome = "/root/.docker/"
 
