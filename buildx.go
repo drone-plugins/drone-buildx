@@ -15,8 +15,8 @@ func cmdSetupBuildx(builder Builder) *exec.Cmd {
 	if builder.Name != "" {
 		args = append(args, "--name", builder.Name)
 	}
-	if builder.DriverOpts != "" {
-		args = append(args, "--driver-opt", builder.DriverOpts)
+	for _, opt := range builder.DriverOpts {
+		args = append(args, "--driver-opt", opt)
 	}
 	if builder.RemoteConn != "" && builder.Driver == remoteDriver {
 		args = append(args, builder.RemoteConn)
