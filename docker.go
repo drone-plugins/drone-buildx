@@ -28,10 +28,10 @@ type (
 	}
 
 	Builder struct {
-		Name       string // Buildx builder name
-		Driver     string // Buildx driver type
-		DriverOpts string // Buildx driver opts
-		RemoteConn string // Buildx remote connection endpoint
+		Name       string   // Buildx builder name
+		Driver     string   // Buildx driver type
+		DriverOpts []string // Buildx driver opts
+		RemoteConn string   // Buildx remote connection endpoint
 	}
 
 	// Login defines Docker login parameters.

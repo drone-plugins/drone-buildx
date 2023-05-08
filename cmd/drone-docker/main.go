@@ -289,9 +289,11 @@ func main() {
 			Name:   "builder-driver",
 			EnvVar: "PLUGIN_BUILDER_DRIVER",
 		},
-		cli.StringFlag{
+		cli.GenericFlag{
 			Name:   "builder-driver-opts",
+			Usage:  "buildx builder driver opts",
 			EnvVar: "PLUGIN_BUILDER_DRIVER_OPTS",
+			Value:  new(docker.CustomStringSliceFlag),
 		},
 		cli.StringFlag{
 			Name:   "builder-remote-conn",
@@ -366,7 +368,7 @@ func run(c *cli.Context) error {
 		Builder: docker.Builder{
 			Name:       c.String("builder-name"),
 			Driver:     c.String("builder-driver"),
-			DriverOpts: c.String("builder-driver-opts"),
+			DriverOpts: c.Generic("builder-driver-opts").(*docker.CustomStringSliceFlag).GetValue(),
 			RemoteConn: c.String("builder-remote-conn"),
 		},
 	}
