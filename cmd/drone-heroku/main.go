@@ -2,10 +2,11 @@ package main
 
 import (
 	"os"
-	"os/exec"
 	"path"
 
 	"github.com/joho/godotenv"
+
+	docker "github.com/drone-plugins/drone-docker"
 )
 
 func main() {
@@ -33,13 +34,7 @@ func main() {
 	os.Setenv("DOCKER_USERNAME", email)
 	os.Setenv("DOCKER_EMAIL", email)
 
-	cmd := exec.Command("drone-docker")
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	err := cmd.Run()
-	if err != nil {
-		os.Exit(1)
-	}
+	docker.Init()
 }
 
 func getenv(key ...string) (s string) {
