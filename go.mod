@@ -1,4 +1,4 @@
-module github.com/drone-plugins/drone-docker
+module github.com/drone-plugins/drone-buildx
 
 require (
 	github.com/aws/aws-sdk-go v1.26.7

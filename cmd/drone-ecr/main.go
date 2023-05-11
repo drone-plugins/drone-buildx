@@ -19,7 +19,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/ecr"
 
-	docker "github.com/drone-plugins/drone-docker"
+	docker "github.com/drone-plugins/drone-buildx"
 )
 
 const defaultRegion = "us-east-1"
