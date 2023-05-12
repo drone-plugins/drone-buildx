@@ -54,7 +54,7 @@ func main() {
 	os.Setenv("DOCKER_USERNAME", username)
 	os.Setenv("DOCKER_PASSWORD", password)
 
-	// invoke the base docker plugin binary
+	// invoke the base docker buildx plugin
 	docker.Run()
 }
 

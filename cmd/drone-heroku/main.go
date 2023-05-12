@@ -34,6 +34,7 @@ func main() {
 	os.Setenv("DOCKER_USERNAME", email)
 	os.Setenv("DOCKER_EMAIL", email)
 
+	// invoke the base docker buildx plugin
 	docker.Run()
 }
 
