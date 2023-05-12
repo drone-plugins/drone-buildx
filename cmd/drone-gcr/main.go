@@ -55,7 +55,7 @@ func main() {
 	os.Setenv("DOCKER_PASSWORD", password)
 
 	// invoke the base docker plugin binary
-	docker.Init()
+	docker.Run()
 }
 
 func getenv(key ...string) (s string) {

@@ -6,7 +6,7 @@ import (
 
 	"github.com/joho/godotenv"
 
-	docker "github.com/drone-plugins/drone-docker"
+	docker "github.com/drone-plugins/drone-buildx"
 )
 
 func main() {
@@ -34,7 +34,7 @@ func main() {
 	os.Setenv("DOCKER_USERNAME", email)
 	os.Setenv("DOCKER_EMAIL", email)
 
-	docker.Init()
+	docker.Run()
 }
 
 func getenv(key ...string) (s string) {

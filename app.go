@@ -12,7 +12,7 @@ var (
 	version = "unknown"
 )
 
-func Init() {
+func Run() {
 	// Load env-file if it exists first
 	if env := os.Getenv("PLUGIN_ENV_FILE"); env != "" {
 		godotenv.Load(env)
