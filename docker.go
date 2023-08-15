@@ -237,12 +237,14 @@ func (p Plugin) Exec() error {
 
 	// write to artifact file
 	if p.ArtifactFile != "" {
-		if digest, err := getDigest(p.MetadataFile); err != nil {
+		if digest, err := getDigest(p.MetadataFile); err == nil {
 			if err = drone.WritePluginArtifactFile(p.Daemon.RegistryType, p.ArtifactFile, p.Daemon.Registry, p.Build.Repo, digest, p.Build.Tags); err != nil {
 				fmt.Printf("Failed to write plugin artifact file at path: %s with error: %s\n", p.ArtifactFile, err)
 			} else {
 				fmt.Printf("Could not fetch the digest. %s\n", err)
 			}
+		} else {
+			fmt.Printf("Unable to get image digest with error: %s", err)
 		}
 	}
 
