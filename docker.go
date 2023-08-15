@@ -244,7 +244,7 @@ func (p Plugin) Exec() error {
 				fmt.Printf("Could not fetch the digest. %s\n", err)
 			}
 		} else {
-			fmt.Printf("Unable to get image digest with error: %s", err)
+			fmt.Printf("Unable to get image digest with error: %s\n", err)
 		}
 	}
 

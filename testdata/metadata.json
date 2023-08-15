@@ -1,0 +1,14 @@
+{
+  "containerimage.config.digest": "sha256:683f636a8d467a82564dbf70cff5e365560b742f43e337240bc4913d3ecee550",
+  "containerimage.descriptor": {
+    "mediaType": "application/vnd.docker.distribution.manifest.v2+json",
+    "digest": "sha256:02fd68a300e3a863791744802ea3eeaac43a36e98888cdb9ffb22da8006f7eee",
+    "size": 504,
+    "platform": {
+      "architecture": "amd64",
+      "os": "linux"
+    }
+  },
+  "containerimage.digest": "sha256:02fd68a300e3a863791744802ea3eeaac43a36e98888cdb9ffb22da8006f7eee",
+  "image.name": "plugins/docker:latest"
+}
