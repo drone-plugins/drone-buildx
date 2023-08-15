@@ -12,7 +12,7 @@ platform:
 
 steps:
   - name: vet
-    image: golang:1.17
+    image: golang:1.20
     commands:
       - go vet ./...
     environment:
@@ -22,7 +22,7 @@ steps:
         path: /go
 
   - name: test
-    image: golang:1.17
+    image: golang:1.20
     commands:
       - go test -cover ./...
     environment:
