@@ -1,0 +1,37 @@
+{
+  "containerimage.buildinfo/linux/amd64": {
+    "frontend": "dockerfile.v0",
+    "attrs": {
+      "add-hosts": "",
+      "filename": "Dockerfile.linux.amd64"
+    },
+    "sources": [
+      {
+        "type": "docker-image",
+        "ref": "docker.io/plugins/docker:linux-amd64",
+        "pin": "sha256:08bfcf62a0ebd384feee3bc2d710255498c2d6524d26bb6c7a092bfaf71342b8"
+      }
+    ]
+  },
+  "containerimage.buildinfo/linux/arm64": {
+    "frontend": "dockerfile.v0",
+    "attrs": {
+      "add-hosts": "",
+      "filename": "Dockerfile.linux.amd64"
+    },
+    "sources": [
+      {
+        "type": "docker-image",
+        "ref": "docker.io/plugins/docker:linux-amd64",
+        "pin": "sha256:08bfcf62a0ebd384feee3bc2d710255498c2d6524d26bb6c7a092bfaf71342b8"
+      }
+    ]
+  },
+  "containerimage.descriptor": {
+    "mediaType": "application/vnd.docker.distribution.manifest.list.v2+json",
+    "digest": "sha256:0cff645119742b04807c4a3953925a579e21654baaeaf20f33c05554a6decbce",
+    "size": 685
+  },
+  "containerimage.digest": "sha256:0cff645119742b04807c4a3953925a579e21654baaeaf20f33c05554a6decbce",
+  "image.name": "plugins/acr:1.0,plugins/acr-new:1.0"
+}

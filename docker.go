@@ -1,29 +1,33 @@
 package docker
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/drone-plugins/drone-plugin-lib/drone"
 )
 
 type (
 	// Daemon defines Docker daemon parameters.
 	Daemon struct {
-		Registry      string   // Docker registry
-		Mirror        string   // Docker registry mirror
-		Insecure      bool     // Docker daemon enable insecure registries
-		StorageDriver string   // Docker daemon storage driver
-		StoragePath   string   // Docker daemon storage path
-		Disabled      bool     // DOcker daemon is disabled (already running)
-		Debug         bool     // Docker daemon started in debug mode
-		Bip           string   // Docker daemon network bridge IP address
-		DNS           []string // Docker daemon dns server
-		DNSSearch     []string // Docker daemon dns search domain
-		MTU           string   // Docker daemon mtu setting
-		IPv6          bool     // Docker daemon IPv6 networking
+		Registry      string             // Docker registry
+		Mirror        string             // Docker registry mirror
+		Insecure      bool               // Docker daemon enable insecure registries
+		StorageDriver string             // Docker daemon storage driver
+		StoragePath   string             // Docker daemon storage path
+		Disabled      bool               // DOcker daemon is disabled (already running)
+		Debug         bool               // Docker daemon started in debug mode
+		Bip           string             // Docker daemon network bridge IP address
+		DNS           []string           // Docker daemon dns server
+		DNSSearch     []string           // Docker daemon dns search domain
+		MTU           string             // Docker daemon mtu setting
+		IPv6          bool               // Docker daemon IPv6 networking
+		RegistryType  drone.RegistryType // Docker registry type
 	}
 
 	Builder struct {
@@ -76,13 +80,15 @@ type (
 
 	// Plugin defines the Docker plugin parameters.
 	Plugin struct {
-		Login    Login   // Docker login configuration
-		Build    Build   // Docker build configuration
-		Builder  Builder // Docker Buildx builder configuration
-		Daemon   Daemon  // Docker daemon configuration
-		Dryrun   bool    // Docker push is skipped
-		Cleanup  bool    // Docker purge is enabled
-		CardPath string  // Card path to write file to
+		Login        Login   // Docker login configuration
+		Build        Build   // Docker build configuration
+		Builder      Builder // Docker Buildx builder configuration
+		Daemon       Daemon  // Docker daemon configuration
+		Dryrun       bool    // Docker push is skipped
+		Cleanup      bool    // Docker purge is enabled
+		CardPath     string  // Card path to write file to
+		MetadataFile string  // Location to write the metadata file
+		ArtifactFile string  // Artifact path to write file to
 	}
 
 	Card []struct {
@@ -204,7 +210,7 @@ func (p Plugin) Exec() error {
 	cmds = append(cmds, commandInfo())    // docker info
 
 	// Command to build, tag and push
-	cmds = append(cmds, commandBuildx(p.Build, p.Builder, p.Dryrun)) // docker build
+	cmds = append(cmds, commandBuildx(p.Build, p.Builder, p.Dryrun, p.MetadataFile)) // docker build
 
 	// execute all commands in batch mode.
 	for _, cmd := range cmds {
@@ -223,8 +229,21 @@ func (p Plugin) Exec() error {
 	}
 
 	// output the adaptive card
-	if err := p.writeCard(); err != nil {
-		fmt.Printf("Could not create adaptive card. %s\n", err)
+	if p.Builder.Driver == defaultDriver {
+		if err := p.writeCard(); err != nil {
+			fmt.Printf("Could not create adaptive card. %s\n", err)
+		}
+	}
+
+	// write to artifact file
+	if p.ArtifactFile != "" {
+		if digest, err := getDigest(p.MetadataFile); err == nil {
+			if err = drone.WritePluginArtifactFile(p.Daemon.RegistryType, p.ArtifactFile, p.Daemon.Registry, p.Build.Repo, digest, p.Build.Tags); err != nil {
+				fmt.Printf("Failed to write plugin artifact file at path: %s with error: %s\n", p.ArtifactFile, err)
+			}
+		} else {
+			fmt.Printf("Could not fetch the digest. %s\n", err)
+		}
 	}
 
 	// execute cleanup routines in batch mode
@@ -243,6 +262,27 @@ func (p Plugin) Exec() error {
 	}
 
 	return nil
+}
+
+func getDigest(metadataFile string) (string, error) {
+	file, err := os.Open(metadataFile)
+	if err != nil {
+		return "", fmt.Errorf("unable to open the metadata file %s with error: %s", metadataFile, err)
+	}
+	defer file.Close()
+
+	var metadata map[string]interface{}
+	if err = json.NewDecoder(file).Decode(&metadata); err != nil {
+		return "", fmt.Errorf("unable to decode the metadata with error: %s", err)
+	}
+
+	if d, found := metadata["containerimage.digest"]; found {
+		if digest, ok := d.(string); ok {
+			return digest, nil
+		}
+		return "", fmt.Errorf("unable to parse containerimage.digest from metadata json")
+	}
+	return "", fmt.Errorf("containerimage.digest not found in metadata json")
 }
 
 // helper function to create the docker login command.
@@ -288,7 +328,7 @@ func commandInfo() *exec.Cmd {
 }
 
 // helper function to create the docker buildx command.
-func commandBuildx(build Build, builder Builder, dryrun bool) *exec.Cmd {
+func commandBuildx(build Build, builder Builder, dryrun bool, metadataFile string) *exec.Cmd {
 	args := []string{
 		"buildx",
 		"build",
@@ -310,6 +350,9 @@ func commandBuildx(build Build, builder Builder, dryrun bool) *exec.Cmd {
 		args = append(args, "--push")
 	}
 	args = append(args, build.Context)
+	if metadataFile != "" {
+		args = append(args, "--metadata-file", metadataFile)
+	}
 	if build.Squash {
 		args = append(args, "--squash")
 	}
