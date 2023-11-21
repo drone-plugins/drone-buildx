@@ -40,11 +40,12 @@ type (
 
 	// Login defines Docker login parameters.
 	Login struct {
-		Registry string // Docker registry address
-		Username string // Docker registry username
-		Password string // Docker registry password
-		Email    string // Docker registry email
-		Config   string // Docker Auth Config
+		Registry    string // Docker registry address
+		Username    string // Docker registry username
+		Password    string // Docker registry password
+		Email       string // Docker registry email
+		Config      string // Docker Auth Config
+		AccessToken string // External Access Token
 	}
 
 	// Build defines Docker build parameters.
@@ -152,6 +153,8 @@ func (p Plugin) Exec() error {
 		fmt.Println("Detected registry credentials")
 	case p.Login.Config != "":
 		fmt.Println("Detected registry credentials file")
+	case p.Login.AccessToken != "":
+		fmt.Println("Detected access token")
 	default:
 		fmt.Println("Registry credentials or Docker config not provided. Guest mode enabled.")
 	}
@@ -176,6 +179,17 @@ func (p Plugin) Exec() error {
 			out = strings.Replace(out, "WARNING! Using --password via the CLI is insecure. Use --password-stdin.", "", -1)
 			fmt.Println(out)
 			return fmt.Errorf("Error authenticating: exit status 1")
+		}
+	} else if p.Login.AccessToken != "" {
+		cmd := commandLoginAccessToken(p.Login, p.Login.AccessToken)
+		output, err := cmd.CombinedOutput()
+		if err != nil {
+			return fmt.Errorf("error logging in to Docker registry: %s", err)
+		}
+		if strings.Contains(string(output), "Login Succeeded") {
+			fmt.Println("Login successful")
+		} else {
+			return fmt.Errorf("login did not succeed")
 		}
 	}
 
@@ -299,6 +313,18 @@ func commandLogin(login Login) *exec.Cmd {
 		"-p", login.Password,
 		login.Registry,
 	)
+}
+
+// helper to login via access token
+func commandLoginAccessToken(login Login, accessToken string) *exec.Cmd {
+	cmd := exec.Command(dockerExe,
+		"login",
+		"-u",
+		"oauth2accesstoken",
+		"--password-stdin",
+		login.Registry)
+	cmd.Stdin = strings.NewReader(accessToken)
+	return cmd
 }
 
 // helper to check if args match "docker pull <image>"

@@ -322,6 +322,11 @@ func Run() {
 			Usage:  "registry type",
 			EnvVar: "PLUGIN_REGISTRY_TYPE",
 		},
+		cli.StringFlag{
+			Name:   "access-token",
+			Usage:  "access token",
+			EnvVar: "ACCESS_TOKEN",
+		},
 	}
 
 	if err := app.Run(os.Args); err != nil {
