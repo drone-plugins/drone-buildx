@@ -74,7 +74,7 @@ steps:
        from_secret: docker_password
      auto_tag: true
      daemon_off: true
-     auto_tag_suffix: windows-1809-amd64
+     auto_tag_suffix: buildx-windows-1809-amd64
      purge: false
    when:
      event: [push, tag]
@@ -89,7 +89,7 @@ steps:
      password:
        from_secret: docker_password
      auto_tag: true
-     auto_tag_suffix: windows-1809-amd64
+     auto_tag_suffix: buildx-windows-1809-amd64
      purge: false
    when:
      event: [push, tag]
@@ -104,7 +104,7 @@ steps:
      password:
        from_secret: docker_password
      auto_tag: true
-     auto_tag_suffix: windows-1809-amd64
+     auto_tag_suffix: buildx-windows-1809-amd64
      purge: false
    when:
      event: [push, tag]
@@ -119,7 +119,7 @@ steps:
      password:
        from_secret: docker_password
      auto_tag: true
-     auto_tag_suffix: windows-1809-amd64
+     auto_tag_suffix: buildx-windows-1809-amd64
      purge: false
    when:
      event: [push, tag]
@@ -164,7 +164,7 @@ steps:
      password:
        from_secret: docker_password
      auto_tag: true
-     auto_tag_suffix: windows-ltsc2022-amd64
+     auto_tag_suffix: buildx-windows-ltsc2022-amd64
      purge: false
    when:
      event: [push, tag]
@@ -178,7 +178,7 @@ steps:
      password:
        from_secret: docker_password
      auto_tag: true
-     auto_tag_suffix: windows-ltsc2022-amd64
+     auto_tag_suffix: buildx-windows-ltsc2022-amd64
      purge: false
    when:
      event: [push, tag]
@@ -192,7 +192,7 @@ steps:
      password:
        from_secret: docker_password
      auto_tag: true
-     auto_tag_suffix: windows-ltsc2022-amd64
+     auto_tag_suffix: buildx-windows-ltsc2022-amd64
      purge: false
    when:
      event: [push, tag]
@@ -206,7 +206,7 @@ steps:
      password:
        from_secret: docker_password
      auto_tag: true
-     auto_tag_suffix: windows-ltsc2022-amd64
+     auto_tag_suffix: buildx-windows-ltsc2022-amd64
      purge: false
    when:
      event: [push, tag]
@@ -263,7 +263,7 @@ steps:
    image: plugins/docker:18
    settings:
      auto_tag: true
-     auto_tag_suffix: linux-amd64
+     auto_tag_suffix: buildx-linux-amd64
      daemon_off: false
      dockerfile: docker/docker/Dockerfile.linux.amd64
      password:
@@ -328,7 +328,7 @@ steps:
    image: plugins/docker:18
    settings:
      auto_tag: true
-     auto_tag_suffix: linux-arm64
+     auto_tag_suffix: buildx-linux-arm64
      daemon_off: false
      dockerfile: docker/docker/Dockerfile.linux.arm64
      password:
@@ -423,7 +423,7 @@ steps:
    image: plugins/docker:18
    settings:
      auto_tag: true
-     auto_tag_suffix: linux-amd64
+     auto_tag_suffix: buildx-linux-amd64
      daemon_off: false
      dockerfile: docker/gcr/Dockerfile.linux.amd64
      password:
@@ -483,7 +483,7 @@ steps:
    image: plugins/docker:18
    settings:
      auto_tag: true
-     auto_tag_suffix: linux-arm64
+     auto_tag_suffix: buildx-linux-arm64
      daemon_off: false
      dockerfile: docker/gcr/Dockerfile.linux.arm64
      password:
@@ -576,7 +576,7 @@ steps:
    image: plugins/docker:18
    settings:
      auto_tag: true
-     auto_tag_suffix: linux-amd64
+     auto_tag_suffix: buildx-linux-amd64
      daemon_off: false
      dockerfile: docker/ecr/Dockerfile.linux.amd64
      password:
@@ -634,7 +634,7 @@ steps:
    image: plugins/docker:18
    settings:
      auto_tag: true
-     auto_tag_suffix: linux-arm64
+     auto_tag_suffix: buildx-linux-arm64
      daemon_off: false
      dockerfile: docker/ecr/Dockerfile.linux.arm64
      password:
@@ -728,7 +728,7 @@ steps:
    image: plugins/docker:18
    settings:
      auto_tag: true
-     auto_tag_suffix: linux-amd64
+     auto_tag_suffix: buildx-linux-amd64
      daemon_off: false
      dockerfile: docker/heroku/Dockerfile.linux.amd64
      password:
@@ -786,7 +786,7 @@ steps:
    image: plugins/docker:18
    settings:
      auto_tag: true
-     auto_tag_suffix: linux-arm64
+     auto_tag_suffix: buildx-linux-arm64
      daemon_off: false
      dockerfile: docker/heroku/Dockerfile.linux.arm64
      password:
@@ -877,7 +877,7 @@ steps:
    image: plugins/docker:18
    settings:
      auto_tag: true
-     auto_tag_suffix: linux-amd64
+     auto_tag_suffix: buildx-linux-amd64
      daemon_off: false
      dockerfile: docker/acr/Dockerfile.linux.amd64
      password:
@@ -937,7 +937,7 @@ steps:
    image: plugins/docker:18
    settings:
      auto_tag: true
-     auto_tag_suffix: linux-arm64
+     auto_tag_suffix: buildx-linux-arm64
      daemon_off: false
      dockerfile: docker/acr/Dockerfile.linux.arm64
      password:
