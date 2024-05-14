@@ -1,4 +1,4 @@
-image: plugins/gcr:buildx-{{#if build.tag}}{{trimPrefix "v" build.tag}}{{else}}latest{{/if}}
+image: plugins/buildx-gcr:{{#if build.tag}}{{trimPrefix "v" build.tag}}{{else}}latest{{/if}}
 {{#if build.tags}}
 tags:
 {{#each build.tags}}
@@ -7,24 +7,24 @@ tags:
 {{/if}}
 manifests:
   -
-    image: plugins/gcr:{{#if build.tag}}{{trimPrefix "v" build.tag}}-{{/if}}buildx-linux-amd64
+    image: plugins/buildx-gcr:{{#if build.tag}}{{trimPrefix "v" build.tag}}-{{/if}}linux-amd64
     platform:
       architecture: amd64
       os: linux
   -
-    image: plugins/gcr:{{#if build.tag}}{{trimPrefix "v" build.tag}}-{{/if}}buildx-linux-arm64
+    image: plugins/buildx-gcr:{{#if build.tag}}{{trimPrefix "v" build.tag}}-{{/if}}linux-arm64
     platform:
       architecture: arm64
       os: linux
       variant: v8
   -
-    image: plugins/gcr:{{#if build.tag}}{{trimPrefix "v" build.tag}}-{{/if}}buildx-windows-1809-amd64
+    image: plugins/buildx-gcr:{{#if build.tag}}{{trimPrefix "v" build.tag}}-{{/if}}windows-1809-amd64
     platform:
       architecture: amd64
       os: windows
       version: 1809
   -
-    image: plugins/gcr:{{#if build.tag}}{{trimPrefix "v" build.tag}}-{{/if}}buildx-windows-ltsc2022-amd64
+    image: plugins/buildx-gcr:{{#if build.tag}}{{trimPrefix "v" build.tag}}-{{/if}}windows-ltsc2022-amd64
     platform:
       architecture: amd64
       os: windows
