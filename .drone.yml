@@ -79,7 +79,7 @@ steps:
    when:
      event: [push, tag]
  - name: build ecr plugin
-   image: plugins/docker:windows-1809-amd64
+   image: plugins/docker:20.17.4-windows-1809-amd64
    settings:
      dockerfile: docker/ecr/Dockerfile.windows.amd64.1809
      repo: plugins/buildx-ecr
@@ -93,7 +93,7 @@ steps:
    when:
      event: [push, tag]
  - name: build gcr plugin
-   image: plugins/docker:windows-1809-amd64
+   image: plugins/docker:20.17.4-windows-1809-amd64
    settings:
      dockerfile: docker/gcr/Dockerfile.windows.amd64.1809
      repo: plugins/buildx-gcr
@@ -107,7 +107,7 @@ steps:
    when:
      event: [push, tag]
  - name: build acr plugin
-   image: plugins/docker:windows-1809-amd64
+   image: plugins/docker:20.17.4-windows-1809-amd64
    settings:
      dockerfile: docker/acr/Dockerfile.windows.amd64.1809
      repo: plugins/buildx-acr
