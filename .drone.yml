@@ -80,7 +80,6 @@ steps:
      event: [push, tag]
  - name: build ecr plugin
    image: plugins/docker:windows-1809-amd64
-   pull: never
    settings:
      dockerfile: docker/ecr/Dockerfile.windows.amd64.1809
      repo: plugins/ecr
@@ -95,7 +94,6 @@ steps:
      event: [push, tag]
  - name: build gcr plugin
    image: plugins/docker:windows-1809-amd64
-   pull: never
    settings:
      dockerfile: docker/gcr/Dockerfile.windows.amd64.1809
      repo: plugins/gcr
@@ -110,7 +108,6 @@ steps:
      event: [push, tag]
  - name: build acr plugin
    image: plugins/docker:windows-1809-amd64
-   pull: never
    settings:
      dockerfile: docker/acr/Dockerfile.windows.amd64.1809
      repo: plugins/acr
@@ -380,6 +377,7 @@ trigger:
    - "refs/tags/**"
 
 depends_on:
+ - windows-1809
  - windows-ltsc2022
  - linux-amd64-docker
  - linux-arm64-docker
@@ -534,6 +532,7 @@ trigger:
    - "refs/tags/**"
 
 depends_on:
+ - windows-1809
  - windows-ltsc2022
  - linux-amd64-gcr
  - linux-arm64-gcr
@@ -684,6 +683,7 @@ trigger:
    - "refs/tags/**"
 
 depends_on:
+ - windows-1809
  - windows-ltsc2022
  - linux-amd64-ecr
  - linux-arm64-ecr
@@ -985,6 +985,7 @@ trigger:
    - "refs/tags/**"
 
 depends_on:
+ - windows-1809
  - windows-ltsc2022
  - linux-amd64-acr
  - linux-arm64-acr
