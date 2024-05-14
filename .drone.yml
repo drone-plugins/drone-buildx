@@ -67,14 +67,14 @@ steps:
    image: plugins/docker@sha256:f0233d950ae87ee6cb5500b2d5497fe02aa338201c0bdce2619f443fd174cfa4
    settings:
      dockerfile: docker/docker/Dockerfile.windows.amd64.1809
-     repo: plugins/docker
+     repo: plugins/buildx
      username:
        from_secret: docker_username
      password:
        from_secret: docker_password
      auto_tag: true
      daemon_off: true
-     auto_tag_suffix: buildx-windows-1809-amd64
+     auto_tag_suffix: windows-1809-amd64
      purge: false
    when:
      event: [push, tag]
@@ -82,13 +82,13 @@ steps:
    image: plugins/docker:windows-1809-amd64
    settings:
      dockerfile: docker/ecr/Dockerfile.windows.amd64.1809
-     repo: plugins/ecr
+     repo: plugins/buildx-ecr
      username:
        from_secret: docker_username
      password:
        from_secret: docker_password
      auto_tag: true
-     auto_tag_suffix: buildx-windows-1809-amd64
+     auto_tag_suffix: windows-1809-amd64
      purge: false
    when:
      event: [push, tag]
@@ -96,13 +96,13 @@ steps:
    image: plugins/docker:windows-1809-amd64
    settings:
      dockerfile: docker/gcr/Dockerfile.windows.amd64.1809
-     repo: plugins/gcr
+     repo: plugins/buildx-gcr
      username:
        from_secret: docker_username
      password:
        from_secret: docker_password
      auto_tag: true
-     auto_tag_suffix: buildx-windows-1809-amd64
+     auto_tag_suffix: windows-1809-amd64
      purge: false
    when:
      event: [push, tag]
@@ -110,13 +110,13 @@ steps:
    image: plugins/docker:windows-1809-amd64
    settings:
      dockerfile: docker/acr/Dockerfile.windows.amd64.1809
-     repo: plugins/acr
+     repo: plugins/buildx-acr
      username:
        from_secret: docker_username
      password:
        from_secret: docker_password
      auto_tag: true
-     auto_tag_suffix: buildx-windows-1809-amd64
+     auto_tag_suffix: windows-1809-amd64
      purge: false
    when:
      event: [push, tag]
@@ -155,13 +155,13 @@ steps:
    image: plugins/docker
    settings:
      dockerfile: docker/docker/Dockerfile.windows.amd64.ltsc2022
-     repo: plugins/docker
+     repo: plugins/buildx
      username:
        from_secret: docker_username
      password:
        from_secret: docker_password
      auto_tag: true
-     auto_tag_suffix: buildx-windows-ltsc2022-amd64
+     auto_tag_suffix: windows-ltsc2022-amd64
      purge: false
    when:
      event: [push, tag]
@@ -169,13 +169,13 @@ steps:
    image: plugins/docker
    settings:
      dockerfile: docker/ecr/Dockerfile.windows.amd64.ltsc2022
-     repo: plugins/ecr
+     repo: plugins/buildx-ecr
      username:
        from_secret: docker_username
      password:
        from_secret: docker_password
      auto_tag: true
-     auto_tag_suffix: buildx-windows-ltsc2022-amd64
+     auto_tag_suffix: windows-ltsc2022-amd64
      purge: false
    when:
      event: [push, tag]
@@ -183,13 +183,13 @@ steps:
    image: plugins/docker
    settings:
      dockerfile: docker/gcr/Dockerfile.windows.amd64.ltsc2022
-     repo: plugins/gcr
+     repo: plugins/buildx-gcr
      username:
        from_secret: docker_username
      password:
        from_secret: docker_password
      auto_tag: true
-     auto_tag_suffix: buildx-windows-ltsc2022-amd64
+     auto_tag_suffix: windows-ltsc2022-amd64
      purge: false
    when:
      event: [push, tag]
@@ -197,13 +197,13 @@ steps:
    image: plugins/docker
    settings:
      dockerfile: docker/acr/Dockerfile.windows.amd64.ltsc2022
-     repo: plugins/acr
+     repo: plugins/buildx-acr
      username:
        from_secret: docker_username
      password:
        from_secret: docker_password
      auto_tag: true
-     auto_tag_suffix: buildx-windows-ltsc2022-amd64
+     auto_tag_suffix: windows-ltsc2022-amd64
      purge: false
    when:
      event: [push, tag]
@@ -260,12 +260,12 @@ steps:
    image: plugins/docker:18
    settings:
      auto_tag: true
-     auto_tag_suffix: buildx-linux-amd64
+     auto_tag_suffix: linux-amd64
      daemon_off: false
      dockerfile: docker/docker/Dockerfile.linux.amd64
      password:
        from_secret: docker_password
-     repo: plugins/docker
+     repo: plugins/buildx
      username:
        from_secret: docker_username
    when:
@@ -325,12 +325,12 @@ steps:
    image: plugins/docker:18
    settings:
      auto_tag: true
-     auto_tag_suffix: buildx-linux-arm64
+     auto_tag_suffix: linux-arm64
      daemon_off: false
      dockerfile: docker/docker/Dockerfile.linux.arm64
      password:
        from_secret: docker_password
-     repo: plugins/docker
+     repo: plugins/buildx
      username:
        from_secret: docker_username
    when:
@@ -420,12 +420,12 @@ steps:
    image: plugins/docker:18
    settings:
      auto_tag: true
-     auto_tag_suffix: buildx-linux-amd64
+     auto_tag_suffix: linux-amd64
      daemon_off: false
      dockerfile: docker/gcr/Dockerfile.linux.amd64
      password:
        from_secret: docker_password
-     repo: plugins/gcr
+     repo: plugins/buildx-gcr
      username:
        from_secret: docker_username
    when:
@@ -480,12 +480,12 @@ steps:
    image: plugins/docker:18
    settings:
      auto_tag: true
-     auto_tag_suffix: buildx-linux-arm64
+     auto_tag_suffix: linux-arm64
      daemon_off: false
      dockerfile: docker/gcr/Dockerfile.linux.arm64
      password:
        from_secret: docker_password
-     repo: plugins/gcr
+     repo: plugins/buildx-gcr
      username:
        from_secret: docker_username
    when:
@@ -573,12 +573,12 @@ steps:
    image: plugins/docker:18
    settings:
      auto_tag: true
-     auto_tag_suffix: buildx-linux-amd64
+     auto_tag_suffix: linux-amd64
      daemon_off: false
      dockerfile: docker/ecr/Dockerfile.linux.amd64
      password:
        from_secret: docker_password
-     repo: plugins/ecr
+     repo: plugins/buildx-ecr
      username:
        from_secret: docker_username
    when:
@@ -631,12 +631,12 @@ steps:
    image: plugins/docker:18
    settings:
      auto_tag: true
-     auto_tag_suffix: buildx-linux-arm64
+     auto_tag_suffix: linux-arm64
      daemon_off: false
      dockerfile: docker/ecr/Dockerfile.linux.arm64
      password:
        from_secret: docker_password
-     repo: plugins/ecr
+     repo: plugins/buildx-ecr
      username:
        from_secret: docker_username
    when:
@@ -725,12 +725,12 @@ steps:
    image: plugins/docker:18
    settings:
      auto_tag: true
-     auto_tag_suffix: buildx-linux-amd64
+     auto_tag_suffix: linux-amd64
      daemon_off: false
      dockerfile: docker/heroku/Dockerfile.linux.amd64
      password:
        from_secret: docker_password
-     repo: plugins/heroku
+     repo: plugins/buildx-heroku
      username:
        from_secret: docker_username
    when:
@@ -783,12 +783,12 @@ steps:
    image: plugins/docker:18
    settings:
      auto_tag: true
-     auto_tag_suffix: buildx-linux-arm64
+     auto_tag_suffix: linux-arm64
      daemon_off: false
      dockerfile: docker/heroku/Dockerfile.linux.arm64
      password:
        from_secret: docker_password
-     repo: plugins/heroku
+     repo: plugins/buildx-heroku
      username:
        from_secret: docker_username
    when:
@@ -874,12 +874,12 @@ steps:
    image: plugins/docker:18
    settings:
      auto_tag: true
-     auto_tag_suffix: buildx-linux-amd64
+     auto_tag_suffix: linux-amd64
      daemon_off: false
      dockerfile: docker/acr/Dockerfile.linux.amd64
      password:
        from_secret: docker_password
-     repo: plugins/acr
+     repo: plugins/buildx-acr
      username:
        from_secret: docker_username
    when:
@@ -934,12 +934,12 @@ steps:
    image: plugins/docker:18
    settings:
      auto_tag: true
-     auto_tag_suffix: buildx-linux-arm64
+     auto_tag_suffix: linux-arm64
      daemon_off: false
      dockerfile: docker/acr/Dockerfile.linux.arm64
      password:
        from_secret: docker_password
-     repo: plugins/acr
+     repo: plugins/buildx-acr
      username:
        from_secret: docker_username
    when:
