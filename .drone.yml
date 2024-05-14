@@ -67,7 +67,7 @@ steps:
    image: plugins/docker@sha256:f0233d950ae87ee6cb5500b2d5497fe02aa338201c0bdce2619f443fd174cfa4
    settings:
      dockerfile: docker/docker/Dockerfile.windows.amd64.1809
-     repo: plugins/docker
+     repo: plugins/buildx
      username:
        from_secret: docker_username
      password:
@@ -155,7 +155,7 @@ steps:
    image: plugins/docker
    settings:
      dockerfile: docker/docker/Dockerfile.windows.amd64.ltsc2022
-     repo: plugins/docker
+     repo: plugins/buildx
      username:
        from_secret: docker_username
      password:
@@ -265,7 +265,7 @@ steps:
      dockerfile: docker/docker/Dockerfile.linux.amd64
      password:
        from_secret: docker_password
-     repo: plugins/docker
+     repo: plugins/buildx
      username:
        from_secret: docker_username
    when:
@@ -330,7 +330,7 @@ steps:
      dockerfile: docker/docker/Dockerfile.linux.arm64
      password:
        from_secret: docker_password
-     repo: plugins/docker
+     repo: plugins/buildx
      username:
        from_secret: docker_username
    when:
