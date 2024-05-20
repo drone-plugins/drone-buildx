@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/drone-plugins/drone-plugin-lib/drone"
-	"github.com/urfave/cli"
 )
 
 type (
@@ -47,9 +46,6 @@ type (
 		Email             string // Docker registry email
 		Config            string // Docker Auth Config
 		AccessToken       string // External Access Token
-		BaseImageRegistry string // Docker base image registry address
-		BaseImageUsername string // Docker base image username
-		BaseImagePassword string // Docker base image password
 	}
 
 	// Build defines Docker build parameters.
@@ -86,15 +82,18 @@ type (
 
 	// Plugin defines the Docker plugin parameters.
 	Plugin struct {
-		Login        Login   // Docker login configuration
-		Build        Build   // Docker build configuration
-		Builder      Builder // Docker Buildx builder configuration
-		Daemon       Daemon  // Docker daemon configuration
-		Dryrun       bool    // Docker push is skipped
-		Cleanup      bool    // Docker purge is enabled
-		CardPath     string  // Card path to write file to
-		MetadataFile string  // Location to write the metadata file
-		ArtifactFile string  // Artifact path to write file to
+		Login        		Login   // Docker login configuration
+		Build        		Build   // Docker build configuration
+		Builder      		Builder // Docker Buildx builder configuration
+		Daemon       		Daemon  // Docker daemon configuration
+		Dryrun       		bool    // Docker push is skipped
+		Cleanup      		bool    // Docker purge is enabled
+		CardPath     		string  // Card path to write file to
+		MetadataFile 		string  // Location to write the metadata file
+		ArtifactFile 		string  // Artifact path to write file to
+		BaseImageRegistry 	string  // Docker registry to pull base image
+		BaseImageUsername 	string  // Docker registry username to pull base image
+		BaseImagePassword 	string  // Docker registry password to pull base image
 	}
 
 	Card []struct {
@@ -126,7 +125,7 @@ type (
 )
 
 // Exec executes the plugin step
-func (p Plugin) Exec(c *cli.Context) error {
+func (p Plugin) Exec() error {
 
 	// start the Docker daemon server
 	if !p.Daemon.Disabled {
@@ -174,29 +173,6 @@ func (p Plugin) Exec(c *cli.Context) error {
 		}
 	}
 
-	//// login to the Docker registry
-	//if p.Login.Password != "" {
-	//	cmd := commandLogin(p.Login)
-	//	raw, err := cmd.CombinedOutput()
-	//	if err != nil {
-	//		out := string(raw)
-	//		out = strings.Replace(out, "WARNING! Using --password via the CLI is insecure. Use --password-stdin.", "", -1)
-	//		fmt.Println(out)
-	//		return fmt.Errorf("Error authenticating: exit status 1")
-	//	}
-	//} else if p.Login.AccessToken != "" {
-	//	cmd := commandLoginAccessToken(p.Login, p.Login.AccessToken)
-	//	output, err := cmd.CombinedOutput()
-	//	if err != nil {
-	//		return fmt.Errorf("error logging in to Docker registry: %s", err)
-	//	}
-	//	if strings.Contains(string(output), "Login Succeeded") {
-	//		fmt.Println("Login successful")
-	//	} else {
-	//		return fmt.Errorf("login did not succeed")
-	//	}
-	//}
-
 	// cache export feature is currently not supported for docker driver hence we have to create docker-container driver
 	if len(p.Build.CacheTo) > 0 && (p.Builder.Driver == "" || p.Builder.Driver == defaultDriver) {
 		p.Builder.Driver = dockerContainerDriver
@@ -229,25 +205,36 @@ func (p Plugin) Exec(c *cli.Context) error {
 	cmds = append(cmds, commandInfo())    // docker info
 
 	// login to base image registry
-	baseImageLogin := exec.Command(
-		dockerExe, "login",
-		"-u", "guptesutkarsha@gmail.com",
-		"-p", "joghy1-rormem-wyhCur",
-		"https://index.docker.io/v1/",
-	)
-	cmds = append(cmds, baseImageLogin) // docker login to pull registry
-	// Command to only build tag (no-push)
-	cmds = append(cmds, commandBuildx(p.Build, p.Builder, p.Dryrun, p.MetadataFile)) // docker build
-	// login to push registry
-	if p.Login.Password != "" {
-		cmdPushLogin := commandLogin(p.Login)
-		cmds = append(cmds, cmdPushLogin)
-	} else if p.Login.AccessToken != "" {
-		cmdPushLogin := commandLoginAccessToken(p.Login, p.Login.AccessToken)
-		cmds = append(cmds, cmdPushLogin)
+	baseImageLogin := Login{
+		Registry: p.BaseImageRegistry,
+		Username: p.BaseImageUsername,
+		Password: p.BaseImagePassword,
 	}
-	// command to only push the image
-	cmds = append(cmds, commandPush(p.Build, p.Build.Tags[0]))
+	var cmdPushLogin, cmdBaseImageLogin *exec.Cmd
+	// just process the login command to push registry, don't append to list of commands yet
+	if p.Login.Password != "" {
+		cmdPushLogin = commandLogin(p.Login)
+	} else if p.Login.AccessToken != "" {
+		cmdPushLogin = commandLoginAccessToken(p.Login, p.Login.AccessToken)
+	}
+	if p.BaseImagePassword != "" {
+		cmdBaseImageLogin = commandLogin(baseImageLogin)
+	} else{
+		cmdBaseImageLogin = cmdPushLogin
+	}
+	// 1. append login command for base image docker registry if provided, else the login command of push registry
+	cmds = append(cmds, cmdBaseImageLogin)
+
+	// 2. Command to only build tag (no-push) - as for push there is a possibility of authentication to different registry
+	cmds = append(cmds, commandBuildx(p.Build, p.Builder, p.Dryrun, p.MetadataFile)) // docker build
+
+	// 3. login to push registry
+	cmds = append(cmds, cmdPushLogin)
+
+	// 4. command to only push the image, if dryrun not set
+	if !p.Dryrun {
+		cmds = append(cmds, commandPush(p.Build, p.Build.Tags[0]))
+	}
 
 	// execute all commands in batch mode.
 	for _, cmd := range cmds {
@@ -329,12 +316,9 @@ func commandLogin(login Login) *exec.Cmd {
 	if login.Email != "" {
 		return commandLoginEmail(login)
 	}
-	return exec.Command(
-		dockerExe, "login",
-		"-u", login.Username,
-		"-p", login.Password,
-		login.Registry,
-	)
+	cmd := exec.Command(dockerExe, "login", "-u", login.Username, "--password-stdin", login.Registry)
+	cmd.Stdin = strings.NewReader(login.Password)
+	return cmd
 }
 
 // helper to login via access token
@@ -383,7 +367,7 @@ func commandBuildx(build Build, builder Builder, dryrun bool, metadataFile strin
 	args := []string{
 		"buildx",
 		"build",
-		"--rm=true",
+		//"--rm=true",
 		"-f", build.Dockerfile,
 	}
 
@@ -393,13 +377,6 @@ func commandBuildx(build Build, builder Builder, dryrun bool, metadataFile strin
 	for _, t := range build.Tags {
 		args = append(args, "-t", fmt.Sprintf("%s:%s", build.Repo, t))
 	}
-	//if dryrun {
-	//	if build.BuildxLoad {
-	//		args = append(args, "--load")
-	//	}
-	//} else {
-	//	args = append(args, "--push")
-	//}
 	args = append(args, "--load")
 	args = append(args, build.Context)
 	if metadataFile != "" {
