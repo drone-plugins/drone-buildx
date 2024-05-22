@@ -204,6 +204,7 @@ func (p Plugin) Exec() error {
 	cmds = append(cmds, commandVersion()) // docker version
 	cmds = append(cmds, commandInfo())    // docker info
 
+	differentBaseRegistry := p.BaseImagePassword != ""
 	// login to base image registry
 	baseImageLogin := Login{
 		Registry: p.BaseImageRegistry,
@@ -211,29 +212,43 @@ func (p Plugin) Exec() error {
 		Password: p.BaseImagePassword,
 	}
 	var cmdPushLogin, cmdBaseImageLogin *exec.Cmd
-	// just process the login command to push registry, don't append to list of commands yet
 	if p.Login.Password != "" {
 		cmdPushLogin = commandLogin(p.Login)
 	} else if p.Login.AccessToken != "" {
 		cmdPushLogin = commandLoginAccessToken(p.Login, p.Login.AccessToken)
 	}
-	if p.BaseImagePassword != "" {
+
+	// login to the registry when different base image registry not found
+	if !differentBaseRegistry {
+		raw, err := cmdPushLogin.CombinedOutput()
+		if err != nil {
+			out := string(raw)
+			out = strings.Replace(out, "WARNING! Using --password via the CLI is insecure. Use --password-stdin.", "", -1)
+			fmt.Println(out)
+			return fmt.Errorf("error logging in to Docker registry: %s", err)
+		}
+		if strings.Contains(string(raw), "Login Succeeded") {
+			fmt.Println("Login successful")
+		} else {
+			return fmt.Errorf("login did not succeed")
+		}
+	} else {
 		cmdBaseImageLogin = commandLogin(baseImageLogin)
-	} else{
-		cmdBaseImageLogin = cmdPushLogin
+		// 1. append login command for base image docker registry if found
+		cmds = append(cmds, cmdBaseImageLogin)
 	}
-	// 1. append login command for base image docker registry if provided, else the login command of push registry
-	cmds = append(cmds, cmdBaseImageLogin)
 
-	// 2. Command to only build tag (no-push) - as for push there is a possibility of authentication to different registry
-	cmds = append(cmds, commandBuildx(p.Build, p.Builder, p.Dryrun, p.MetadataFile)) // docker build
+	// 2. Command to only build tag with and without push options
+	//- as for push there is a possibility of authentication to different registry
+	cmds = append(cmds, commandBuildx(p.Build, p.Builder, p.Dryrun, differentBaseRegistry, p.MetadataFile)) // docker build
 
-	// 3. login to push registry
-	cmds = append(cmds, cmdPushLogin)
-
-	// 4. command to only push the image, if dryrun not set
-	if !p.Dryrun {
-		cmds = append(cmds, commandPush(p.Build, p.Build.Tags[0]))
+	// 3. add cmds to login to push registry and push the tag when different base image registry is found
+	if differentBaseRegistry {
+		cmds = append(cmds, cmdPushLogin)
+		// 4. command to only push the image, if dryrun not set
+		if !p.Dryrun {
+			cmds = append(cmds, commandPush(p.Build, p.Build.Tags[0]))
+		}
 	}
 
 	// execute all commands in batch mode.
@@ -363,7 +378,7 @@ func commandInfo() *exec.Cmd {
 }
 
 // helper function to create the docker buildx command.
-func commandBuildx(build Build, builder Builder, dryrun bool, metadataFile string) *exec.Cmd {
+func commandBuildx(build Build, builder Builder, dryrun, differentBaseRegistry bool, metadataFile string) *exec.Cmd {
 	args := []string{
 		"buildx",
 		"build",
@@ -377,7 +392,16 @@ func commandBuildx(build Build, builder Builder, dryrun bool, metadataFile strin
 	for _, t := range build.Tags {
 		args = append(args, "-t", fmt.Sprintf("%s:%s", build.Repo, t))
 	}
-	args = append(args, "--load")
+	if dryrun {
+		if build.BuildxLoad {
+			args = append(args, "--load")
+		}
+	} else {
+		// check to keep the old behaviour unchanged, i.e one registry to pull and push the artifact
+		if !differentBaseRegistry {
+			args = append(args, "--push")
+		}
+	}
 	args = append(args, build.Context)
 	if metadataFile != "" {
 		args = append(args, "--metadata-file", metadataFile)

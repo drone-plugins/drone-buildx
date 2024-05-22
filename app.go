@@ -1,7 +1,6 @@
 package docker
 
 import (
-	"log"
 	"os"
 
 	"github.com/drone-plugins/drone-plugin-lib/drone"
