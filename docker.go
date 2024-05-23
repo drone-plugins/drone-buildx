@@ -273,7 +273,7 @@ func (p Plugin) Exec() error {
 					return err
 				}
 
-				if err := saveToJsonFile(cacheMetrics, p.CacheMetricsFile); err != nil {
+				if err := saveCacheMetrics(cacheMetrics, p.CacheMetricsFile); err != nil {
 					return err
 				}
 			}
@@ -372,21 +372,25 @@ func parseCacheMetrics(r io.Reader) (CacheMetrics, error) {
 	return cacheMetrics, nil
 }
 
-func saveToJsonFile(data CacheMetrics, filename string) error {
-	file, err := os.Create(filename)
+func saveCacheMetrics(data CacheMetrics, filename string) error {
+	b, err := json.MarshalIndent(data, "", "\t")
 	if err != nil {
-		return fmt.Errorf("creating JSON file: %w", err)
-	}
-	defer file.Close()
-
-	encoder := json.NewEncoder(file)
-	encoder.SetIndent("", "  ")
-	if err := encoder.Encode(data); err != nil {
-		return fmt.Errorf("encoding JSON data: %w", err)
+		return fmt.Errorf("failed with err %s to marshal output %+v", err, data)
 	}
 
+	dir := filepath.Dir(filename)
+	err = os.MkdirAll(dir, 0644)
+	if err != nil {
+		return fmt.Errorf("failed with err %s to create %s directory for artifact file", err, dir)
+	}
+
+	err = os.WriteFile(filename, b, 0644)
+	if err != nil {
+		return fmt.Errorf("failed to write artifact to artifact file %s", filename)
+	}
 	return nil
 }
+
 
 func getDigest(metadataFile string) (string, error) {
 	file, err := os.Open(metadataFile)
