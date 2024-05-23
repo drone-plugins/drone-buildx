@@ -391,7 +391,6 @@ func saveCacheMetrics(data CacheMetrics, filename string) error {
 	return nil
 }
 
-
 func getDigest(metadataFile string) (string, error) {
 	file, err := os.Open(metadataFile)
 	if err != nil {
