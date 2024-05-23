@@ -1,11 +1,14 @@
 package docker
 
 import (
+	"bufio"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 
@@ -82,15 +85,16 @@ type (
 
 	// Plugin defines the Docker plugin parameters.
 	Plugin struct {
-		Login        Login   // Docker login configuration
-		Build        Build   // Docker build configuration
-		Builder      Builder // Docker Buildx builder configuration
-		Daemon       Daemon  // Docker daemon configuration
-		Dryrun       bool    // Docker push is skipped
-		Cleanup      bool    // Docker purge is enabled
-		CardPath     string  // Card path to write file to
-		MetadataFile string  // Location to write the metadata file
-		ArtifactFile string  // Artifact path to write file to
+		Login            Login   // Docker login configuration
+		Build            Build   // Docker build configuration
+		Builder          Builder // Docker Buildx builder configuration
+		Daemon           Daemon  // Docker daemon configuration
+		Dryrun           bool    // Docker push is skipped
+		Cleanup          bool    // Docker purge is enabled
+		CardPath         string  // Card path to write file to
+		MetadataFile     string  // Location to write the metadata file
+		ArtifactFile     string  // Artifact path to write file to
+		CacheMetricsFile string  // Location to write the cache metrics file
 	}
 
 	Card []struct {
@@ -118,6 +122,14 @@ type (
 	}
 	TagStruct struct {
 		Tag string `json:"Tag"`
+	}
+
+	CacheMetrics struct {
+		TotalLayers int `json:"total_layers"`
+		Done        int `json:"done"`
+		Cached      int `json:"cached"`
+		Errored     int `json:"errored"`
+		Cancelled   int `json:"cancelled"`
 	}
 )
 
@@ -232,8 +244,47 @@ func (p Plugin) Exec() error {
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
 		trace(cmd)
+		var err error
+		if isCommandBuildxBuild(cmd.Args) {
+			errChan := make(chan error, 1)
 
-		err := cmd.Run()
+			// Create a pipe to capture stdout
+			pr, pw := io.Pipe()
+
+			// Run the command in a goroutine
+			go func() {
+				defer pw.Close()
+				defer close(errChan) // Ensure errChan is closed after the goroutine completes
+
+				cmd.Stdout = pw
+				cmd.Stderr = pw
+
+				if err := cmd.Run(); err != nil {
+					errChan <- err
+				}
+			}()
+
+			fmt.Printf("Printing Cache Metrics File %s\n", p.CacheMetricsFile)
+
+			if p.CacheMetricsFile != "" {
+				// Run the parseCacheMetrics function and handle errors
+				cacheMetrics, err := parseCacheMetrics(pr)
+				if err != nil {
+					return err
+				}
+
+				if err := saveToJsonFile(cacheMetrics, p.CacheMetricsFile); err != nil {
+					return err
+				}
+			}
+			// Handle errors from the command goroutine
+			if err := <-errChan; err != nil {
+				return err
+			}
+
+		} else {
+			err = cmd.Run()
+		}
 		if err != nil && isCommandPrune(cmd.Args) {
 			fmt.Printf("Could not prune system containers. Ignoring...\n")
 		} else if err != nil && isCommandRmi(cmd.Args) {
@@ -276,6 +327,62 @@ func (p Plugin) Exec() error {
 			cmd.Stderr = os.Stderr
 			trace(cmd)
 		}
+	}
+
+	return nil
+}
+
+func parseCacheMetrics(r io.Reader) (CacheMetrics, error) {
+	scanner := bufio.NewScanner(r)
+	var cacheMetrics CacheMetrics
+
+	// Regular expression to match the log lines
+	re := regexp.MustCompile(`#\d+ (DONE|CACHED|ERRORED|CANCELLED)`)
+
+	for scanner.Scan() {
+		line := scanner.Text()
+		fmt.Println(line) // Print to stdout
+
+		// Parse the line based on the regex
+		matches := re.FindStringSubmatch(line)
+		if len(matches) == 2 {
+			status := matches[1]
+
+			// Increment the appropriate category
+			switch status {
+			case "DONE":
+				cacheMetrics.Done++
+			case "CACHED":
+				cacheMetrics.Cached++
+			case "ERRORED":
+				cacheMetrics.Errored++
+			case "CANCELLED":
+				cacheMetrics.Cancelled++
+			}
+		}
+	}
+
+	if err := scanner.Err(); err != nil {
+		return cacheMetrics, fmt.Errorf("error reading buildx output: %w", err)
+	}
+
+	// Calculate the total layers
+	cacheMetrics.TotalLayers = cacheMetrics.Done + cacheMetrics.Cached + cacheMetrics.Errored + cacheMetrics.Cancelled
+
+	return cacheMetrics, nil
+}
+
+func saveToJsonFile(data CacheMetrics, filename string) error {
+	file, err := os.Create(filename)
+	if err != nil {
+		return fmt.Errorf("creating JSON file: %w", err)
+	}
+	defer file.Close()
+
+	encoder := json.NewEncoder(file)
+	encoder.SetIndent("", "  ")
+	if err := encoder.Encode(data); err != nil {
+		return fmt.Errorf("encoding JSON data: %w", err)
 	}
 
 	return nil
@@ -585,6 +692,11 @@ func commandDaemon(daemon Daemon) *exec.Cmd {
 		args = append(args, "--mtu", daemon.MTU)
 	}
 	return exec.Command(dockerdExe, args...)
+}
+
+// helper to check if args match "docker buildx build"
+func isCommandBuildxBuild(args []string) bool {
+	return len(args) > 3 && args[1] == "buildx" && args[2] == "build"
 }
 
 // helper to check if args match "docker prune"
