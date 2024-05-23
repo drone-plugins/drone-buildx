@@ -1,6 +1,7 @@
 package docker
 
 import (
+	"log"
 	"os"
 
 	"github.com/drone-plugins/drone-plugin-lib/drone"
@@ -226,6 +227,21 @@ func Run() {
 			EnvVar: "PLUGIN_PASSWORD,DOCKER_PASSWORD",
 		},
 		cli.StringFlag{
+			Name:   "docker.baseimageusername",
+			Usage:  "Docker username for base image registry",
+			EnvVar: "PLUGIN_DOCKER_USERNAME,PLUGIN_BASE_IMAGE_USERNAME",
+		},
+		cli.StringFlag{
+			Name:   "docker.baseimagepassword",
+			Usage:  "Docker password for base image registry",
+			EnvVar: "PLUGIN_DOCKER_PASSWORD,PLUGIN_BASE_IMAGE_PASSWORD",
+		},
+		cli.StringFlag{
+			Name:   "docker.baseimageregistry",
+			Usage:  "Docker registry for base image registry",
+			EnvVar: "PLUGIN_DOCKER_REGISTRY,PLUGIN_BASE_IMAGE_REGISTRY",
+		},
+		cli.StringFlag{
 			Name:   "docker.email",
 			Usage:  "docker email",
 			EnvVar: "PLUGIN_EMAIL,DOCKER_EMAIL",
@@ -344,12 +360,11 @@ func run(c *cli.Context) error {
 		Dryrun:  c.Bool("dry-run"),
 		Cleanup: c.BoolT("docker.purge"),
 		Login: Login{
-			Registry:    c.String("docker.registry"),
-			Username:    c.String("docker.username"),
-			Password:    c.String("docker.password"),
-			Email:       c.String("docker.email"),
-			Config:      c.String("docker.config"),
-			AccessToken: c.String("access-token"),
+			Registry: c.String("docker.registry"),
+			Username: c.String("docker.username"),
+			Password: c.String("docker.password"),
+			Email:    c.String("docker.email"),
+			Config:   c.String("docker.config"),
 		},
 		CardPath:     c.String("drone-card-path"),
 		MetadataFile: c.String("metadata-file"),
@@ -405,6 +420,9 @@ func run(c *cli.Context) error {
 			DriverOpts: c.Generic("builder-driver-opts").(*CustomStringSliceFlag).GetValue(),
 			RemoteConn: c.String("builder-remote-conn"),
 		},
+		BaseImageRegistry: c.String("docker.baseimageregistry"),
+		BaseImageUsername: c.String("docker.baseimageusername"),
+		BaseImagePassword: c.String("docker.baseimagepassword"),
 	}
 
 	if c.Bool("tags.auto") {
