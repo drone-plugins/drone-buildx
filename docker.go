@@ -246,7 +246,7 @@ func (p Plugin) Exec() error {
 		cmd.Stderr = os.Stderr
 		trace(cmd)
 		var err error
-		if isCommandBuildxBuild(cmd.Args) {
+		if isCommandBuildxBuild(cmd.Args) && p.CacheMetricsFile != "" {
 			errChan := make(chan error, 1)
 
 			// Create a pipe to capture stdout
@@ -261,29 +261,26 @@ func (p Plugin) Exec() error {
 				defer close(errChan) // Ensure errChan is closed after the goroutine completes
 
 				cmd.Stdout = mw
+				cmd.Stderr = mw
 				if err := cmd.Run(); err != nil {
 					errChan <- err
 				}
 			}()
 
-			fmt.Printf("Printing Cache Metrics File %s\n", p.CacheMetricsFile)
-
-			if p.CacheMetricsFile != "" {
-				// Run the parseCacheMetrics function and handle errors
-				cacheMetrics, err := parseCacheMetrics(pr)
-				if err != nil {
-					return err
-				}
-
-				if err := saveCacheMetrics(cacheMetrics, p.CacheMetricsFile); err != nil {
-					return err
-				}
+			// Run the parseCacheMetrics function and handle errors
+			cacheMetrics, err := parseCacheMetrics(pr)
+			if err != nil {
+				return err
 			}
+
 			// Handle errors from the command goroutine
 			if err := <-errChan; err != nil {
 				return err
 			}
 
+			if err := saveCacheMetrics(cacheMetrics, p.CacheMetricsFile); err != nil {
+				return err
+			}
 		} else {
 			err = cmd.Run()
 		}
@@ -469,7 +466,7 @@ func commandInfo() *exec.Cmd {
 // helper function to create the docker buildx command.
 func commandBuildx(build Build, builder Builder, dryrun bool, metadataFile string) *exec.Cmd {
 	args := []string{
-		"buildxp",
+		"buildx",
 		"build",
 		"--rm=true",
 		"-f", build.Dockerfile,
