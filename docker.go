@@ -470,7 +470,7 @@ func commandInfo() *exec.Cmd {
 // helper function to create the docker buildx command.
 func commandBuildx(build Build, builder Builder, dryrun bool, metadataFile string) *exec.Cmd {
 	args := []string{
-		"buildx",
+		"buildxp",
 		"build",
 		"--rm=true",
 		"-f", build.Dockerfile,
