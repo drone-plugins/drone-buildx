@@ -241,7 +241,6 @@ func (p Plugin) Exec() error {
 
 	// execute all commands in batch mode.
 	for _, cmd := range cmds {
-		fmt.Printf("ANURAG in CMD\n")
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
 		trace(cmd)
