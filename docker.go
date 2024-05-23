@@ -252,14 +252,15 @@ func (p Plugin) Exec() error {
 			// Create a pipe to capture stdout
 			pr, pw := io.Pipe()
 
+			// Create a MultiWriter to write to both the pipe writer and stdout
+			mw := io.MultiWriter(pw, os.Stdout)
+
 			// Run the command in a goroutine
 			go func() {
 				defer pw.Close()
 				defer close(errChan) // Ensure errChan is closed after the goroutine completes
 
-				cmd.Stdout = pw
-				cmd.Stderr = pw
-
+				cmd.Stdout = mw
 				if err := cmd.Run(); err != nil {
 					errChan <- err
 				}
@@ -342,8 +343,6 @@ func parseCacheMetrics(r io.Reader) (CacheMetrics, error) {
 
 	for scanner.Scan() {
 		line := scanner.Text()
-		fmt.Println(line) // Print to stdout
-
 		// Parse the line based on the regex
 		matches := re.FindStringSubmatch(line)
 		if len(matches) == 2 {
