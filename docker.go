@@ -257,6 +257,7 @@ func (p Plugin) Exec() error {
 			cacheMetrics, err := parseCacheMetrics(statusCh)
 			if err != nil {
 				fmt.Printf("Could not parse cache metrics: %s", err)
+			} else {
 				if err := writeCacheMetrics(cacheMetrics, p.CacheMetricsFile); err != nil {
 					fmt.Printf("Could not write cache metrics: %s", err)
 				}
