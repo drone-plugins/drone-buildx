@@ -246,35 +246,31 @@ func (p Plugin) Exec() error {
 		trace(cmd)
 		var err error
 		if isCommandBuildxBuild(cmd.Args) && p.CacheMetricsFile != "" {
-			errChan := make(chan error, 1)
-
 			// Create a pipe to capture stdout
 			pr, pw := io.Pipe()
 
 			// Create a MultiWriter to write to both the pipe writer and stdout
 			mw := io.MultiWriter(pw, os.Stdout)
 
+			var goroutineErr error
+
 			// Run the command in a goroutine
 			go func() {
 				defer pw.Close()
-				defer close(errChan) // Ensure errChan is closed after the goroutine completes
 
 				cmd.Stdout = mw
 				cmd.Stderr = mw
-				if err := cmd.Run(); err != nil {
-					errChan <- err
-				}
+				goroutineErr = cmd.Run()
 			}()
 
 			// Run the parseCacheMetrics function and handle errors
-			cacheMetrics, err := parseCacheMetrics(pr)
+			cacheMetrics, err := writeCacheMetrics(pr)
 			if err != nil {
-				return err
+				fmt.Printf("Could not parse cache metrics: %s", err)
 			}
 
-			// Handle errors from the command goroutine
-			if err := <-errChan; err != nil {
-				return err
+			if goroutineErr != nil {
+				return goroutineErr
 			}
 
 			if err := saveCacheMetrics(cacheMetrics, p.CacheMetricsFile); err != nil {
@@ -330,7 +326,7 @@ func (p Plugin) Exec() error {
 	return nil
 }
 
-func parseCacheMetrics(r io.Reader) (CacheMetrics, error) {
+func writeCacheMetrics(r io.Reader) (CacheMetrics, error) {
 	scanner := bufio.NewScanner(r)
 	var cacheMetrics CacheMetrics
 
@@ -377,12 +373,12 @@ func saveCacheMetrics(data CacheMetrics, filename string) error {
 	dir := filepath.Dir(filename)
 	err = os.MkdirAll(dir, 0644)
 	if err != nil {
-		return fmt.Errorf("failed with err %s to create %s directory for artifact file", err, dir)
+		return fmt.Errorf("failed with err %s to create %s directory for cache metrics file", err, dir)
 	}
 
 	err = os.WriteFile(filename, b, 0644)
 	if err != nil {
-		return fmt.Errorf("failed to write artifact to artifact file %s", filename)
+		return fmt.Errorf("failed to write cache metrics to cache metrics file %s", filename)
 	}
 	return nil
 }
