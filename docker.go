@@ -1,7 +1,6 @@
 package docker
 
 import (
-	"bufio"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -9,7 +8,9 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/drone-plugins/drone-plugin-lib/drone"
@@ -124,14 +125,49 @@ type (
 		Tag string `json:"Tag"`
 	}
 
+	LayerStatus struct {
+		Status string
+		Time   float64 // Time in seconds; only set for DONE layers
+	}
+
 	CacheMetrics struct {
-		TotalLayers int `json:"total_layers"`
-		Done        int `json:"done"`
-		Cached      int `json:"cached"`
-		Errored     int `json:"errored"`
-		Cancelled   int `json:"cancelled"`
+		TotalLayers int                 `json:"total_layers"`
+		Done        int                 `json:"done"`
+		Cached      int                 `json:"cached"`
+		Errored     int                 `json:"errored"`
+		Cancelled   int                 `json:"cancelled"`
+		Layers      map[int]LayerStatus `json:"layers"`
+	}
+
+	tee struct {
+		w      io.Writer
+		status chan string
 	}
 )
+
+func (t *tee) Write(p []byte) (n int, err error) {
+	n, err = t.w.Write(p)
+	if err != nil {
+		return n, err
+	}
+	select {
+	case t.status <- string(p):
+		// Successfully sent to the channel
+	default:
+		// Drop the message if the channel is full to avoid blocking
+	}
+	return n, nil
+}
+
+func (t *tee) Close() error {
+	close(t.status)
+	return nil
+}
+
+func Tee(w io.Writer) (*tee, <-chan string) {
+	status := make(chan string, 10) // Buffered channel to reduce the risk of blocking
+	return &tee{w: w, status: status}, status
+}
 
 // Exec executes the plugin step
 func (p Plugin) Exec() error {
@@ -246,28 +282,29 @@ func (p Plugin) Exec() error {
 		trace(cmd)
 		var err error
 		if isCommandBuildxBuild(cmd.Args) && p.CacheMetricsFile != "" {
-			// Create a pipe to capture stdout
-			pr, pw := io.Pipe()
-
-			// Create a MultiWriter to write to both the pipe writer and stdout
-			mw := io.MultiWriter(pw, os.Stdout)
+			// Create a tee writer and get the channel
+			teeWriter, statusCh := Tee(os.Stdout)
 
 			var goroutineErr error
 
+			var wg sync.WaitGroup
+			wg.Add(1)
 			// Run the command in a goroutine
 			go func() {
-				defer pw.Close()
+				defer teeWriter.Close()
+				defer wg.Done()
 
-				cmd.Stdout = mw
-				cmd.Stderr = mw
+				cmd.Stdout = teeWriter
+				cmd.Stderr = teeWriter
 				goroutineErr = cmd.Run()
 			}()
 
 			// Run the parseCacheMetrics function and handle errors
-			cacheMetrics, err := parseCacheMetrics(pr)
+			cacheMetrics, err := parseCacheMetrics(statusCh)
 			if err != nil {
 				fmt.Printf("Could not parse cache metrics: %s", err)
 			}
+			wg.Wait()
 
 			if goroutineErr != nil {
 				return goroutineErr
@@ -326,39 +363,40 @@ func (p Plugin) Exec() error {
 	return nil
 }
 
-func parseCacheMetrics(r io.Reader) (CacheMetrics, error) {
-	scanner := bufio.NewScanner(r)
+func parseCacheMetrics(ch <-chan string) (CacheMetrics, error) {
 	var cacheMetrics CacheMetrics
+	cacheMetrics.Layers = make(map[int]LayerStatus) // Initialize the map
 
-	// Regular expression to match the log lines
-	re := regexp.MustCompile(`#\d+ (DONE|CACHED|ERRORED|CANCELLED)`)
+	re := regexp.MustCompile(`#(\d+) (DONE|CACHED|ERRORED|CANCELLED)(?: ([0-9.]+)s)?`)
 
-	for scanner.Scan() {
-		line := scanner.Text()
-		// Parse the line based on the regex
-		matches := re.FindStringSubmatch(line)
-		if len(matches) == 2 {
-			status := matches[1]
+	for line := range ch {
+		matches := re.FindAllStringSubmatch(line, -1)
+		for _, match := range matches {
+			if len(match) > 2 {
+				layerIndex, _ := strconv.Atoi(match[1])
+				status := match[2]
+				layerStatus := LayerStatus{Status: status}
 
-			// Increment the appropriate category
-			switch status {
-			case "DONE":
-				cacheMetrics.Done++
-			case "CACHED":
-				cacheMetrics.Cached++
-			case "ERRORED":
-				cacheMetrics.Errored++
-			case "CANCELLED":
-				cacheMetrics.Cancelled++
+				switch status {
+				case "DONE":
+					cacheMetrics.Done++
+					if len(match) == 4 && match[3] != "" {
+						if duration, err := strconv.ParseFloat(match[3], 64); err == nil {
+							layerStatus.Time = duration
+						}
+					}
+				case "CACHED":
+					cacheMetrics.Cached++
+				case "ERRORED":
+					cacheMetrics.Errored++
+				case "CANCELLED":
+					cacheMetrics.Cancelled++
+				}
+				cacheMetrics.Layers[layerIndex] = layerStatus
 			}
 		}
 	}
 
-	if err := scanner.Err(); err != nil {
-		return cacheMetrics, fmt.Errorf("error reading buildx output: %w", err)
-	}
-
-	// Calculate the total layers
 	cacheMetrics.TotalLayers = cacheMetrics.Done + cacheMetrics.Cached + cacheMetrics.Errored + cacheMetrics.Cancelled
 
 	return cacheMetrics, nil
