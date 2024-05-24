@@ -34,31 +34,32 @@ func parseCacheMetrics(ch <-chan string) (CacheMetrics, error) {
 	for line := range ch {
 		matches := re.FindAllStringSubmatch(line, -1)
 		for _, match := range matches {
-			if len(match) > 2 {
-				layerIndex, err := strconv.Atoi(match[1])
-				if err != nil {
-					return cacheMetrics, fmt.Errorf("failed to convert layer index %s to int", match[1])
-				}
-				status := match[2]
-				layerStatus := LayerStatus{Status: status}
-
-				switch status {
-				case "DONE":
-					cacheMetrics.Done++
-					if len(match) == 4 && match[3] != "" {
-						if duration, err := strconv.ParseFloat(match[3], 64); err == nil {
-							layerStatus.Time = duration
-						}
-					}
-				case "CACHED":
-					cacheMetrics.Cached++
-				case "ERRORED":
-					cacheMetrics.Errored++
-				case "CANCELLED":
-					cacheMetrics.Cancelled++
-				}
-				cacheMetrics.Layers[layerIndex] = layerStatus
+			if len(match) <= 2 {
+				continue
 			}
+			layerIndex, err := strconv.Atoi(match[1])
+			if err != nil {
+				return cacheMetrics, fmt.Errorf("failed to convert layer index %s to int", match[1])
+			}
+			status := match[2]
+			layerStatus := LayerStatus{Status: status}
+
+			switch status {
+			case "DONE":
+				cacheMetrics.Done++
+				if len(match) == 4 && match[3] != "" {
+					if duration, err := strconv.ParseFloat(match[3], 64); err == nil {
+						layerStatus.Time = duration
+					}
+				}
+			case "CACHED":
+				cacheMetrics.Cached++
+			case "ERRORED":
+				cacheMetrics.Errored++
+			case "CANCELLED":
+				cacheMetrics.Cancelled++
+			}
+			cacheMetrics.Layers[layerIndex] = layerStatus
 		}
 	}
 
