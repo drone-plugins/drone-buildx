@@ -165,7 +165,7 @@ func (t *tee) Close() error {
 }
 
 func Tee(w io.Writer) (*tee, <-chan string) {
-	status := make(chan string, 10) // Buffered channel to reduce the risk of blocking
+	status := make(chan string, 100) // Buffered channel to reduce the risk of dropping messages
 	return &tee{w: w, status: status}, status
 }
 
