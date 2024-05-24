@@ -264,7 +264,7 @@ func (p Plugin) Exec() error {
 			}()
 
 			// Run the parseCacheMetrics function and handle errors
-			cacheMetrics, err := writeCacheMetrics(pr)
+			cacheMetrics, err := parseCacheMetrics(pr)
 			if err != nil {
 				fmt.Printf("Could not parse cache metrics: %s", err)
 			}
@@ -273,7 +273,7 @@ func (p Plugin) Exec() error {
 				return goroutineErr
 			}
 
-			if err := saveCacheMetrics(cacheMetrics, p.CacheMetricsFile); err != nil {
+			if err := writeCacheMetrics(cacheMetrics, p.CacheMetricsFile); err != nil {
 				return err
 			}
 		} else {
@@ -326,7 +326,7 @@ func (p Plugin) Exec() error {
 	return nil
 }
 
-func writeCacheMetrics(r io.Reader) (CacheMetrics, error) {
+func parseCacheMetrics(r io.Reader) (CacheMetrics, error) {
 	scanner := bufio.NewScanner(r)
 	var cacheMetrics CacheMetrics
 
@@ -364,7 +364,7 @@ func writeCacheMetrics(r io.Reader) (CacheMetrics, error) {
 	return cacheMetrics, nil
 }
 
-func saveCacheMetrics(data CacheMetrics, filename string) error {
+func writeCacheMetrics(data CacheMetrics, filename string) error {
 	b, err := json.MarshalIndent(data, "", "\t")
 	if err != nil {
 		return fmt.Errorf("failed with err %s to marshal output %+v", err, data)
