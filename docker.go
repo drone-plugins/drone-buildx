@@ -3,12 +3,9 @@ package docker
 import (
 	"encoding/json"
 	"fmt"
-	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
-	"regexp"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -124,50 +121,7 @@ type (
 	TagStruct struct {
 		Tag string `json:"Tag"`
 	}
-
-	LayerStatus struct {
-		Status string
-		Time   float64 // Time in seconds; only set for DONE layers
-	}
-
-	CacheMetrics struct {
-		TotalLayers int                 `json:"total_layers"`
-		Done        int                 `json:"done"`
-		Cached      int                 `json:"cached"`
-		Errored     int                 `json:"errored"`
-		Cancelled   int                 `json:"cancelled"`
-		Layers      map[int]LayerStatus `json:"layers"`
-	}
-
-	tee struct {
-		w      io.Writer
-		status chan string
-	}
 )
-
-func (t *tee) Write(p []byte) (n int, err error) {
-	n, err = t.w.Write(p)
-	if err != nil {
-		return n, err
-	}
-	select {
-	case t.status <- string(p):
-		// Successfully sent to the channel
-	default:
-		// Drop the message if the channel is full to avoid blocking
-	}
-	return n, nil
-}
-
-func (t *tee) Close() error {
-	close(t.status)
-	return nil
-}
-
-func Tee(w io.Writer) (*tee, <-chan string) {
-	status := make(chan string, 100) // Buffered channel to reduce the risk of dropping messages
-	return &tee{w: w, status: status}, status
-}
 
 // Exec executes the plugin step
 func (p Plugin) Exec() error {
@@ -303,15 +257,14 @@ func (p Plugin) Exec() error {
 			cacheMetrics, err := parseCacheMetrics(statusCh)
 			if err != nil {
 				fmt.Printf("Could not parse cache metrics: %s", err)
+				if err := writeCacheMetrics(cacheMetrics, p.CacheMetricsFile); err != nil {
+					fmt.Printf("Could not write cache metrics: %s", err)
+				}
 			}
 			wg.Wait()
 
 			if goroutineErr != nil {
 				return goroutineErr
-			}
-
-			if err := writeCacheMetrics(cacheMetrics, p.CacheMetricsFile); err != nil {
-				return err
 			}
 		} else {
 			err = cmd.Run()
@@ -360,64 +313,6 @@ func (p Plugin) Exec() error {
 		}
 	}
 
-	return nil
-}
-
-func parseCacheMetrics(ch <-chan string) (CacheMetrics, error) {
-	var cacheMetrics CacheMetrics
-	cacheMetrics.Layers = make(map[int]LayerStatus) // Initialize the map
-
-	re := regexp.MustCompile(`#(\d+) (DONE|CACHED|ERRORED|CANCELLED)(?: ([0-9.]+)s)?`)
-
-	for line := range ch {
-		matches := re.FindAllStringSubmatch(line, -1)
-		for _, match := range matches {
-			if len(match) > 2 {
-				layerIndex, _ := strconv.Atoi(match[1])
-				status := match[2]
-				layerStatus := LayerStatus{Status: status}
-
-				switch status {
-				case "DONE":
-					cacheMetrics.Done++
-					if len(match) == 4 && match[3] != "" {
-						if duration, err := strconv.ParseFloat(match[3], 64); err == nil {
-							layerStatus.Time = duration
-						}
-					}
-				case "CACHED":
-					cacheMetrics.Cached++
-				case "ERRORED":
-					cacheMetrics.Errored++
-				case "CANCELLED":
-					cacheMetrics.Cancelled++
-				}
-				cacheMetrics.Layers[layerIndex] = layerStatus
-			}
-		}
-	}
-
-	cacheMetrics.TotalLayers = cacheMetrics.Done + cacheMetrics.Cached + cacheMetrics.Errored + cacheMetrics.Cancelled
-
-	return cacheMetrics, nil
-}
-
-func writeCacheMetrics(data CacheMetrics, filename string) error {
-	b, err := json.MarshalIndent(data, "", "\t")
-	if err != nil {
-		return fmt.Errorf("failed with err %s to marshal output %+v", err, data)
-	}
-
-	dir := filepath.Dir(filename)
-	err = os.MkdirAll(dir, 0644)
-	if err != nil {
-		return fmt.Errorf("failed with err %s to create %s directory for cache metrics file", err, dir)
-	}
-
-	err = os.WriteFile(filename, b, 0644)
-	if err != nil {
-		return fmt.Errorf("failed to write cache metrics to cache metrics file %s", filename)
-	}
 	return nil
 }
 
