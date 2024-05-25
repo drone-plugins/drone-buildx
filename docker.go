@@ -256,10 +256,10 @@ func (p Plugin) Exec() error {
 			// Run the parseCacheMetrics function and handle errors
 			cacheMetrics, err := parseCacheMetrics(statusCh)
 			if err != nil {
-				fmt.Printf("Could not parse cache metrics: %s", err)
+				fmt.Printf("Could not parse cache metrics: %s\n", err)
 			} else {
 				if err := writeCacheMetrics(cacheMetrics, p.CacheMetricsFile); err != nil {
-					fmt.Printf("Could not write cache metrics: %s", err)
+					fmt.Printf("Could not write cache metrics: %s\n", err)
 				}
 			}
 			wg.Wait()
