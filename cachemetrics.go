@@ -20,7 +20,7 @@ type (
 		Done        int                 `json:"done"`
 		Cached      int                 `json:"cached"`
 		Errored     int                 `json:"errored"`
-		Canceled   int                 `json:"canceled"`
+		Canceled    int                 `json:"canceled"`
 		Layers      map[int]LayerStatus `json:"layers"`
 	}
 )
