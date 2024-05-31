@@ -15,7 +15,7 @@ func TestParseCacheMetrics(t *testing.T) {
 		{
 			name:     "empty channel",
 			input:    []string{},
-			expected: CacheMetrics{Layers: make(map[int]LayerStatus)},
+			expected: CacheMetrics{},
 		},
 		{
 			name: "valid metrics with multiple on same line",
@@ -24,13 +24,13 @@ func TestParseCacheMetrics(t *testing.T) {
 				"#5 DONE 1.0s #6 CACHED",
 			},
 			expected: CacheMetrics{
-				Layers: map[int]LayerStatus{
-					1: {Status: "DONE", Time: 0.5},
-					2: {Status: "CACHED"},
-					3: {Status: "ERRORED"},
-					4: {Status: "CANCELED"},
-					5: {Status: "DONE", Time: 1.0},
-					6: {Status: "CACHED"},
+				Layers: []Layer{
+					{Index: 1, LayerStatus: LayerStatus{Status: "DONE", Time: 0.5}},
+					{Index: 2, LayerStatus: LayerStatus{Status: "CACHED"}},
+					{Index: 3, LayerStatus: LayerStatus{Status: "ERRORED"}},
+					{Index: 4, LayerStatus: LayerStatus{Status: "CANCELED"}},
+					{Index: 5, LayerStatus: LayerStatus{Status: "DONE", Time: 1.0}},
+					{Index: 6, LayerStatus: LayerStatus{Status: "CACHED"}},
 				},
 				Done:        2,
 				Cached:      2,
@@ -46,10 +46,10 @@ func TestParseCacheMetrics(t *testing.T) {
 				"#4 DONE #invalid_line",
 			},
 			expected: CacheMetrics{
-				Layers: map[int]LayerStatus{
-					1: {Status: "DONE", Time: 0.5},
-					3: {Status: "CACHED"},
-					4: {Status: "DONE"},
+				Layers: []Layer{
+					{Index: 1, LayerStatus: LayerStatus{Status: "DONE", Time: 0.5}},
+					{Index: 3, LayerStatus: LayerStatus{Status: "CACHED"}},
+					{Index: 4, LayerStatus: LayerStatus{Status: "DONE"}},
 				},
 				Done:        2,
 				Cached:      1,
@@ -64,13 +64,13 @@ func TestParseCacheMetrics(t *testing.T) {
 				"#6 DONE",
 			},
 			expected: CacheMetrics{
-				Layers: map[int]LayerStatus{
-					1: {Status: "DONE", Time: 1.2},
-					2: {Status: "DONE", Time: 0.8},
-					3: {Status: "CACHED"},
-					4: {Status: "ERRORED"},
-					5: {Status: "CANCELED"},
-					6: {Status: "DONE"},
+				Layers: []Layer{
+					{Index: 1, LayerStatus: LayerStatus{Status: "DONE", Time: 1.2}},
+					{Index: 2, LayerStatus: LayerStatus{Status: "DONE", Time: 0.8}},
+					{Index: 3, LayerStatus: LayerStatus{Status: "CACHED"}},
+					{Index: 4, LayerStatus: LayerStatus{Status: "ERRORED"}},
+					{Index: 5, LayerStatus: LayerStatus{Status: "CANCELED"}},
+					{Index: 6, LayerStatus: LayerStatus{Status: "DONE"}},
 				},
 				Done:        3,
 				Cached:      1,
@@ -86,9 +86,9 @@ func TestParseCacheMetrics(t *testing.T) {
 				"#3 CACHED #invalid_line",
 			},
 			expected: CacheMetrics{
-				Layers: map[int]LayerStatus{
-					1: {Status: "DONE", Time: 0.5},
-					3: {Status: "CACHED"},
+				Layers: []Layer{
+					{Index: 1, LayerStatus: LayerStatus{Status: "DONE", Time: 0.5}},
+					{Index: 3, LayerStatus: LayerStatus{Status: "CACHED"}},
 				},
 				Done:        1,
 				Cached:      1,
