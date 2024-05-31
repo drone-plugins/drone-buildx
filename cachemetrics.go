@@ -19,7 +19,7 @@ type (
 		TotalLayers int                 `json:"total_layers"`
 		Done        int                 `json:"done"`
 		Cached      int                 `json:"cached"`
-		Errored     int                 `json:"errored"`
+		Error       int                 `json:"error"`
 		Canceled    int                 `json:"canceled"`
 		Layers      map[int]LayerStatus `json:"layers"`
 	}
@@ -29,7 +29,7 @@ func parseCacheMetrics(ch <-chan string) (CacheMetrics, error) {
 	var cacheMetrics CacheMetrics
 	cacheMetrics.Layers = make(map[int]LayerStatus) // Initialize the map
 
-	re := regexp.MustCompile(`#(\d+) (DONE|CACHED|ERRORED|CANCELED)(?: ([0-9.]+)s)?`)
+	re := regexp.MustCompile(`#(\d+) (DONE|CACHED|ERROR|CANCELED)(?: ([0-9.]+)s)?`)
 
 	for line := range ch {
 		matches := re.FindAllStringSubmatch(line, -1)
@@ -60,14 +60,14 @@ func parseCacheMetrics(ch <-chan string) (CacheMetrics, error) {
 			cacheMetrics.Done++
 		case "CACHED":
 			cacheMetrics.Cached++
-		case "ERRORED":
-			cacheMetrics.Errored++
+		case "ERROR":
+			cacheMetrics.Error++
 		case "CANCELED":
 			cacheMetrics.Canceled++
 		}
 	}
 
-	cacheMetrics.TotalLayers = cacheMetrics.Done + cacheMetrics.Cached + cacheMetrics.Errored + cacheMetrics.Canceled
+	cacheMetrics.TotalLayers = cacheMetrics.Done + cacheMetrics.Cached + cacheMetrics.Error + cacheMetrics.Canceled
 
 	return cacheMetrics, nil
 }
