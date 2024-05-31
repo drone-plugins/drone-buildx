@@ -11,8 +11,8 @@ import (
 
 type (
 	LayerStatus struct {
-		Status string
-		Time   float64 // Time in seconds; only set for DONE layers
+		Status string  `json:"status"`
+		Time   float64 `json:"time"` // Time in seconds; only set for DONE layers
 	}
 
 	CacheMetrics struct {
@@ -44,22 +44,26 @@ func parseCacheMetrics(ch <-chan string) (CacheMetrics, error) {
 			status := match[2]
 			layerStatus := LayerStatus{Status: status}
 
-			switch status {
-			case "DONE":
-				cacheMetrics.Done++
-				if len(match) == 4 && match[3] != "" {
-					if duration, err := strconv.ParseFloat(match[3], 64); err == nil {
-						layerStatus.Time = duration
-					}
+			if status == "DONE" && len(match) == 4 && match[3] != "" {
+				if duration, err := strconv.ParseFloat(match[3], 64); err == nil {
+					layerStatus.Time = duration
 				}
-			case "CACHED":
-				cacheMetrics.Cached++
-			case "ERRORED":
-				cacheMetrics.Errored++
-			case "CANCELED":
-				cacheMetrics.Canceled++
 			}
 			cacheMetrics.Layers[layerIndex] = layerStatus
+		}
+	}
+
+	// Count the number of each status in the Layers map
+	for _, layerStatus := range cacheMetrics.Layers {
+		switch layerStatus.Status {
+		case "DONE":
+			cacheMetrics.Done++
+		case "CACHED":
+			cacheMetrics.Cached++
+		case "ERRORED":
+			cacheMetrics.Errored++
+		case "CANCELED":
+			cacheMetrics.Canceled++
 		}
 	}
 

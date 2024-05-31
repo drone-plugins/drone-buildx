@@ -20,12 +20,12 @@ func TestParseCacheMetrics(t *testing.T) {
 		{
 			name: "valid metrics with multiple on same line",
 			input: []string{
-				"#1 DONE 0.5s #2 CACHED #3 ERRORED #4 CANCELED",
+				"#1 DONE 0.5s #1 DONE 0.6s #2 CACHED #3 ERRORED #4 CANCELED",
 				"#5 DONE 1.0s #6 CACHED",
 			},
 			expected: CacheMetrics{
 				Layers: map[int]LayerStatus{
-					1: {Status: "DONE", Time: 0.5},
+					1: {Status: "DONE", Time: 0.6},
 					2: {Status: "CACHED"},
 					3: {Status: "ERRORED"},
 					4: {Status: "CANCELED"},
