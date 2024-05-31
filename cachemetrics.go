@@ -6,28 +6,33 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strconv"
 )
 
 type (
 	LayerStatus struct {
-		Status string
-		Time   float64 // Time in seconds; only set for DONE layers
+		Status string  `json:"status"`
+		Time   float64 `json:"time"` // Time in seconds; only set for DONE layers
+	}
+
+	Layer struct {
+		Index       int         ` json:"index"`
+		LayerStatus LayerStatus `json:"layer_status"`
 	}
 
 	CacheMetrics struct {
-		TotalLayers int                 `json:"total_layers"`
-		Done        int                 `json:"done"`
-		Cached      int                 `json:"cached"`
-		Errored     int                 `json:"errored"`
-		Canceled    int                 `json:"canceled"`
-		Layers      map[int]LayerStatus `json:"layers"`
+		TotalLayers int     `json:"total_layers"`
+		Done        int     `json:"done"`
+		Cached      int     `json:"cached"`
+		Errored     int     `json:"errored"`
+		Canceled    int     `json:"canceled"`
+		Layers      []Layer `json:"layers"`
 	}
 )
 
 func parseCacheMetrics(ch <-chan string) (CacheMetrics, error) {
 	var cacheMetrics CacheMetrics
-	cacheMetrics.Layers = make(map[int]LayerStatus) // Initialize the map
 
 	re := regexp.MustCompile(`#(\d+) (DONE|CACHED|ERRORED|CANCELED)(?: ([0-9.]+)s)?`)
 
@@ -59,11 +64,20 @@ func parseCacheMetrics(ch <-chan string) (CacheMetrics, error) {
 			case "CANCELED":
 				cacheMetrics.Canceled++
 			}
-			cacheMetrics.Layers[layerIndex] = layerStatus
+
+			cacheMetrics.Layers = append(cacheMetrics.Layers, Layer{
+				Index:       layerIndex,
+				LayerStatus: layerStatus,
+			})
 		}
 	}
 
 	cacheMetrics.TotalLayers = cacheMetrics.Done + cacheMetrics.Cached + cacheMetrics.Errored + cacheMetrics.Canceled
+
+	// Sort layers by their index
+	sort.Slice(cacheMetrics.Layers, func(i, j int) bool {
+		return cacheMetrics.Layers[i].Index < cacheMetrics.Layers[j].Index
+	})
 
 	return cacheMetrics, nil
 }
