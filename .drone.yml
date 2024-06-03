@@ -1033,7 +1033,7 @@ steps:
         - release/drone-buildx-darwin-amd64.zst
         - release/drone-buildx-windows-amd64.exe.zst
       api_key:
-        from_secret: github_token
+        from_secret: github_token2
     when:
       event:
         - tag
