@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/drone-plugins/drone-plugin-lib/drone"
@@ -91,6 +92,7 @@ type (
 		CardPath          string  // Card path to write file to
 		MetadataFile      string  // Location to write the metadata file
 		ArtifactFile      string  // Artifact path to write file to
+    CacheMetricsFile string  // Location to write the cache metrics file
 		BaseImageRegistry string  // Docker registry to pull base image
 		BaseImageUsername string  // Docker registry username to pull base image
 		BaseImagePassword string  // Docker registry password to pull base image
@@ -256,8 +258,42 @@ func (p Plugin) Exec() error {
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
 		trace(cmd)
+		var err error
+		if isCommandBuildxBuild(cmd.Args) && p.CacheMetricsFile != "" {
+			// Create a tee writer and get the channel
+			teeWriter, statusCh := Tee(os.Stdout)
 
-		err := cmd.Run()
+			var goroutineErr error
+
+			var wg sync.WaitGroup
+			wg.Add(1)
+			// Run the command in a goroutine
+			go func() {
+				defer teeWriter.Close()
+				defer wg.Done()
+
+				cmd.Stdout = teeWriter
+				cmd.Stderr = teeWriter
+				goroutineErr = cmd.Run()
+			}()
+
+			// Run the parseCacheMetrics function and handle errors
+			cacheMetrics, err := parseCacheMetrics(statusCh)
+			if err != nil {
+				fmt.Printf("Could not parse cache metrics: %s\n", err)
+			} else {
+				if err := writeCacheMetrics(cacheMetrics, p.CacheMetricsFile); err != nil {
+					fmt.Printf("Could not write cache metrics: %s\n", err)
+				}
+			}
+			wg.Wait()
+
+			if goroutineErr != nil {
+				return goroutineErr
+			}
+		} else {
+			err = cmd.Run()
+		}
 		if err != nil && isCommandPrune(cmd.Args) {
 			fmt.Printf("Could not prune system containers. Ignoring...\n")
 		} else if err != nil && isCommandRmi(cmd.Args) {
@@ -609,6 +645,11 @@ func commandDaemon(daemon Daemon) *exec.Cmd {
 		args = append(args, "--mtu", daemon.MTU)
 	}
 	return exec.Command(dockerdExe, args...)
+}
+
+// helper to check if args match "docker buildx build"
+func isCommandBuildxBuild(args []string) bool {
+	return len(args) > 3 && args[1] == "buildx" && args[2] == "build"
 }
 
 // helper to check if args match "docker prune"
