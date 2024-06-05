@@ -40,12 +40,12 @@ type (
 
 	// Login defines Docker login parameters.
 	Login struct {
-		Registry          string // Docker registry address
-		Username          string // Docker registry username
-		Password          string // Docker registry password
-		Email             string // Docker registry email
-		Config            string // Docker Auth Config
-		AccessToken       string // External Access Token
+		Registry    string // Docker registry address
+		Username    string // Docker registry username
+		Password    string // Docker registry password
+		Email       string // Docker registry email
+		Config      string // Docker Auth Config
+		AccessToken string // External Access Token
 	}
 
 	// Build defines Docker build parameters.
@@ -82,18 +82,18 @@ type (
 
 	// Plugin defines the Docker plugin parameters.
 	Plugin struct {
-		Login        		Login   // Docker login configuration
-		Build        		Build   // Docker build configuration
-		Builder      		Builder // Docker Buildx builder configuration
-		Daemon       		Daemon  // Docker daemon configuration
-		Dryrun       		bool    // Docker push is skipped
-		Cleanup      		bool    // Docker purge is enabled
-		CardPath     		string  // Card path to write file to
-		MetadataFile 		string  // Location to write the metadata file
-		ArtifactFile 		string  // Artifact path to write file to
-		BaseImageRegistry 	string  // Docker registry to pull base image
-		BaseImageUsername 	string  // Docker registry username to pull base image
-		BaseImagePassword 	string  // Docker registry password to pull base image
+		Login             Login   // Docker login configuration
+		Build             Build   // Docker build configuration
+		Builder           Builder // Docker Buildx builder configuration
+		Daemon            Daemon  // Docker daemon configuration
+		Dryrun            bool    // Docker push is skipped
+		Cleanup           bool    // Docker purge is enabled
+		CardPath          string  // Card path to write file to
+		MetadataFile      string  // Location to write the metadata file
+		ArtifactFile      string  // Artifact path to write file to
+		BaseImageRegistry string  // Docker registry to pull base image
+		BaseImageUsername string  // Docker registry username to pull base image
+		BaseImagePassword string  // Docker registry password to pull base image
 	}
 
 	Card []struct {
@@ -382,7 +382,7 @@ func commandBuildx(build Build, builder Builder, dryrun, differentBaseRegistry b
 	args := []string{
 		"buildx",
 		"build",
-		//"--rm=true",
+		"--rm=true",
 		"-f", build.Dockerfile,
 	}
 
