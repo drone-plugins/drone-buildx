@@ -989,53 +989,53 @@ depends_on:
  - windows-ltsc2022
  - linux-amd64-acr
  - linux-arm64-acr
----
+# ---
 
-kind: pipeline
-name: release-binaries
-type: vm
+# kind: pipeline
+# name: release-binaries
+# type: vm
 
-pool:
-  use: ubuntu
+# pool:
+#   use: ubuntu
 
-steps:
-  - name: build
-    pull: always
-    image: golang:1.19
-    commands:
-      - GOOS=linux   GOARCH=amd64   go build -ldflags "-s -w" -a -tags netgo -o release/drone-buildx-linux-amd64 ./cmd/drone-docker
-      - GOOS=linux   GOARCH=arm64   go build -ldflags "-s -w" -a -tags netgo -o release/drone-buildx-linux-arm64 ./cmd/drone-docker
-      - GOOS=darwin  GOARCH=amd64   go build -ldflags "-s -w" -a -tags netgo -o release/drone-buildx-darwin-amd64 ./cmd/drone-docker
-      - GOOS=darwin  GOARCH=arm64   go build -ldflags "-s -w" -a -tags netgo -o release/drone-buildx-darwin-arm64 ./cmd/drone-docker
-      - GOOS=windows GOARCH=amd64   go build -ldflags "-s -w" -a -tags netgo -o release/drone-buildx-windows-amd64.exe ./cmd/drone-docker
+# steps:
+#   - name: build
+#     pull: always
+#     image: golang:1.19
+#     commands:
+#       - GOOS=linux   GOARCH=amd64   go build -ldflags "-s -w" -a -tags netgo -o release/drone-buildx-linux-amd64 ./cmd/drone-docker
+#       - GOOS=linux   GOARCH=arm64   go build -ldflags "-s -w" -a -tags netgo -o release/drone-buildx-linux-arm64 ./cmd/drone-docker
+#       - GOOS=darwin  GOARCH=amd64   go build -ldflags "-s -w" -a -tags netgo -o release/drone-buildx-darwin-amd64 ./cmd/drone-docker
+#       - GOOS=darwin  GOARCH=arm64   go build -ldflags "-s -w" -a -tags netgo -o release/drone-buildx-darwin-arm64 ./cmd/drone-docker
+#       - GOOS=windows GOARCH=amd64   go build -ldflags "-s -w" -a -tags netgo -o release/drone-buildx-windows-amd64.exe ./cmd/drone-docker
 
-    environment:
-      CGO_ENABLED: 0
-      GO111MODULE: on
+#     environment:
+#       CGO_ENABLED: 0
+#       GO111MODULE: on
 
-  - name: zstd-compress
-    commands:
-      - sudo apt-get update -y
-      - sudo apt-get install -y zstd
-      - zstd release/drone-buildx-linux-amd64
-      - zstd release/drone-buildx-linux-arm64
-      - zstd release/drone-buildx-darwin-arm64
-      - zstd release/drone-buildx-darwin-amd64
-      - zstd release/drone-buildx-windows-amd64.exe
+#   - name: zstd-compress
+#     commands:
+#       - sudo apt-get update -y
+#       - sudo apt-get install -y zstd
+#       - zstd release/drone-buildx-linux-amd64
+#       - zstd release/drone-buildx-linux-arm64
+#       - zstd release/drone-buildx-darwin-arm64
+#       - zstd release/drone-buildx-darwin-amd64
+#       - zstd release/drone-buildx-windows-amd64.exe
 
-  - name: release
-    image: plugins/github-release
-    settings:
-      files:
-        - release/drone-buildx-linux-amd64.zst
-        - release/drone-buildx-linux-arm64.zst
-        - release/drone-buildx-darwin-arm64.zst
-        - release/drone-buildx-darwin-amd64.zst
-        - release/drone-buildx-windows-amd64.exe.zst
-      api_key:
-        from_secret: github_token
-    when:
-      event:
-        - tag
-depends_on:
-  - testing
+#   - name: release
+#     image: plugins/github-release
+#     settings:
+#       files:
+#         - release/drone-buildx-linux-amd64.zst
+#         - release/drone-buildx-linux-arm64.zst
+#         - release/drone-buildx-darwin-arm64.zst
+#         - release/drone-buildx-darwin-amd64.zst
+#         - release/drone-buildx-windows-amd64.exe.zst
+#       api_key:
+#         from_secret: github_token
+#     when:
+#       event:
+#         - tag
+# depends_on:
+#   - testing
