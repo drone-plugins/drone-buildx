@@ -202,7 +202,6 @@ func (p Plugin) Exec() error {
 
 	if p.Builder.Driver != "" && p.Builder.Driver != defaultDriver {
 		createCmd := cmdSetupBuildx(p.Builder)
-		trace(createCmd)
 		raw, err := createCmd.Output()
 		if err != nil {
 			return fmt.Errorf("error while creating buildx builder: %s and err: %s", string(raw), err)
