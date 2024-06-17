@@ -436,6 +436,9 @@ func commandBuildx(build Build, builder Builder, dryrun, differentBaseRegistry b
 		// check to keep the old behaviour unchanged, i.e one registry to pull and push the artifact
 		if !differentBaseRegistry {
 			args = append(args, "--push")
+		} else {
+			// --load will keep the built image with the specified tag locally to be pushed later
+			args = append(args, "--load")
 		}
 	}
 	args = append(args, build.Context)
