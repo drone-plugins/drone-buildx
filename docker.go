@@ -83,16 +83,19 @@ type (
 
 	// Plugin defines the Docker plugin parameters.
 	Plugin struct {
-		Login            Login   // Docker login configuration
-		Build            Build   // Docker build configuration
-		Builder          Builder // Docker Buildx builder configuration
-		Daemon           Daemon  // Docker daemon configuration
-		Dryrun           bool    // Docker push is skipped
-		Cleanup          bool    // Docker purge is enabled
-		CardPath         string  // Card path to write file to
-		MetadataFile     string  // Location to write the metadata file
-		ArtifactFile     string  // Artifact path to write file to
-		CacheMetricsFile string  // Location to write the cache metrics file
+		Login             Login   // Docker login configuration
+		Build             Build   // Docker build configuration
+		Builder           Builder // Docker Buildx builder configuration
+		Daemon            Daemon  // Docker daemon configuration
+		Dryrun            bool    // Docker push is skipped
+		Cleanup           bool    // Docker purge is enabled
+		CardPath          string  // Card path to write file to
+		MetadataFile      string  // Location to write the metadata file
+		ArtifactFile      string  // Artifact path to write file to
+    CacheMetricsFile string  // Location to write the cache metrics file
+		BaseImageRegistry string  // Docker registry to pull base image
+		BaseImageUsername string  // Docker registry username to pull base image
+		BaseImagePassword string  // Docker registry password to pull base image
 	}
 
 	Card []struct {
@@ -172,29 +175,6 @@ func (p Plugin) Exec() error {
 		}
 	}
 
-	// login to the Docker registry
-	if p.Login.Password != "" {
-		cmd := commandLogin(p.Login)
-		raw, err := cmd.CombinedOutput()
-		if err != nil {
-			out := string(raw)
-			out = strings.Replace(out, "WARNING! Using --password via the CLI is insecure. Use --password-stdin.", "", -1)
-			fmt.Println(out)
-			return fmt.Errorf("Error authenticating: exit status 1")
-		}
-	} else if p.Login.AccessToken != "" {
-		cmd := commandLoginAccessToken(p.Login, p.Login.AccessToken)
-		output, err := cmd.CombinedOutput()
-		if err != nil {
-			return fmt.Errorf("error logging in to Docker registry: %s", err)
-		}
-		if strings.Contains(string(output), "Login Succeeded") {
-			fmt.Println("Login successful")
-		} else {
-			return fmt.Errorf("login did not succeed")
-		}
-	}
-
 	// cache export feature is currently not supported for docker driver hence we have to create docker-container driver
 	if len(p.Build.CacheTo) > 0 && (p.Builder.Driver == "" || p.Builder.Driver == defaultDriver) {
 		p.Builder.Driver = dockerContainerDriver
@@ -226,8 +206,52 @@ func (p Plugin) Exec() error {
 	cmds = append(cmds, commandVersion()) // docker version
 	cmds = append(cmds, commandInfo())    // docker info
 
-	// Command to build, tag and push
-	cmds = append(cmds, commandBuildx(p.Build, p.Builder, p.Dryrun, p.MetadataFile)) // docker build
+	differentBaseRegistry := p.BaseImagePassword != ""
+	// login to base image registry
+	baseImageLogin := Login{
+		Registry: p.BaseImageRegistry,
+		Username: p.BaseImageUsername,
+		Password: p.BaseImagePassword,
+	}
+	var cmdPushLogin, cmdBaseImageLogin *exec.Cmd
+	if p.Login.Password != "" {
+		cmdPushLogin = commandLogin(p.Login)
+	} else if p.Login.AccessToken != "" {
+		cmdPushLogin = commandLoginAccessToken(p.Login, p.Login.AccessToken)
+	}
+
+	// login to the registry when different base image registry not found
+	if !differentBaseRegistry {
+		raw, err := cmdPushLogin.CombinedOutput()
+		if err != nil {
+			out := string(raw)
+			out = strings.Replace(out, "WARNING! Using --password via the CLI is insecure. Use --password-stdin.", "", -1)
+			fmt.Println(out)
+			return fmt.Errorf("error logging in to Docker registry: %s", err)
+		}
+		if strings.Contains(string(raw), "Login Succeeded") {
+			fmt.Println("Login successful")
+		} else {
+			return fmt.Errorf("login did not succeed")
+		}
+	} else {
+		cmdBaseImageLogin = commandLogin(baseImageLogin)
+		// 1. append login command for base image docker registry if found
+		cmds = append(cmds, cmdBaseImageLogin)
+	}
+
+	// 2. Command to only build tag with and without push options
+	//- as for push there is a possibility of authentication to different registry
+	cmds = append(cmds, commandBuildx(p.Build, p.Builder, p.Dryrun, differentBaseRegistry, p.MetadataFile)) // docker build
+
+	// 3. add cmds to login to push registry and push the tag when different base image registry is found
+	if differentBaseRegistry {
+		cmds = append(cmds, cmdPushLogin)
+		// 4. command to only push the image, if dryrun not set
+		if !p.Dryrun {
+			cmds = append(cmds, commandPush(p.Build, p.Build.Tags[0]))
+		}
+	}
 
 	// execute all commands in batch mode.
 	for _, cmd := range cmds {
@@ -343,12 +367,9 @@ func commandLogin(login Login) *exec.Cmd {
 	if login.Email != "" {
 		return commandLoginEmail(login)
 	}
-	return exec.Command(
-		dockerExe, "login",
-		"-u", login.Username,
-		"-p", login.Password,
-		login.Registry,
-	)
+	cmd := exec.Command(dockerExe, "login", "-u", login.Username, "--password-stdin", login.Registry)
+	cmd.Stdin = strings.NewReader(login.Password)
+	return cmd
 }
 
 // helper to login via access token
@@ -393,7 +414,7 @@ func commandInfo() *exec.Cmd {
 }
 
 // helper function to create the docker buildx command.
-func commandBuildx(build Build, builder Builder, dryrun bool, metadataFile string) *exec.Cmd {
+func commandBuildx(build Build, builder Builder, dryrun, differentBaseRegistry bool, metadataFile string) *exec.Cmd {
 	args := []string{
 		"buildx",
 		"build",
@@ -412,7 +433,13 @@ func commandBuildx(build Build, builder Builder, dryrun bool, metadataFile strin
 			args = append(args, "--load")
 		}
 	} else {
-		args = append(args, "--push")
+		// check to keep the old behaviour unchanged, i.e one registry to pull and push the artifact
+		if !differentBaseRegistry {
+			args = append(args, "--push")
+		} else {
+			// --load will keep the built image with the specified tag locally to be pushed later
+			args = append(args, "--load")
+		}
 	}
 	args = append(args, build.Context)
 	if metadataFile != "" {
