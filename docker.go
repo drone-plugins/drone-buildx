@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/drone-plugins/drone-plugin-lib/drone"
+	"github.com/drone-plugins/drone-buildx/config/docker"
 )
 
 type (
@@ -92,7 +93,7 @@ type (
 		CardPath          string  // Card path to write file to
 		MetadataFile      string  // Location to write the metadata file
 		ArtifactFile      string  // Artifact path to write file to
-    CacheMetricsFile string  // Location to write the cache metrics file
+		CacheMetricsFile  string  // Location to write the cache metrics file
 		BaseImageRegistry string  // Docker registry to pull base image
 		BaseImageUsername string  // Docker registry username to pull base image
 		BaseImagePassword string  // Docker registry password to pull base image
@@ -169,9 +170,56 @@ func (p Plugin) Exec() error {
 		os.MkdirAll(dockerHome, 0600)
 
 		path := filepath.Join(dockerHome, "config.json")
-		err := os.WriteFile(path, []byte(p.Login.Config), 0600)
+		file, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0600)
 		if err != nil {
 			return fmt.Errorf("Error writing config.json: %s", err)
+		}
+		err = os.WriteFile(path, []byte(p.Login.Config), 0600)
+		if err != nil {
+			return fmt.Errorf("Error writing config.json: %s", err)
+		}
+		file.Close()
+	}
+
+	// add base image docker credentials to the existing config file, else create new
+	if p.BaseImagePassword != "" {
+		json, err := setDockerAuth(p.Login.Username, p.Login.Password, p.Login.Registry,
+			p.BaseImageUsername, p.BaseImagePassword, p.BaseImageRegistry)
+		if err != nil {
+			return fmt.Errorf("Failed to set authentication in docker config %s", err)
+		}
+		os.MkdirAll(dockerHome, 0600)
+		path := filepath.Join(dockerHome, "config.json")
+		file, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0600)
+		if err != nil {
+			return fmt.Errorf("Error opening config.json: %s", err)
+		}
+		defer file.Close()
+		_, err = file.Write(json)
+		if err != nil {
+			return fmt.Errorf("Error writing config.json: %s", err)
+		}
+	}
+	// login to the Docker registry
+	if p.Login.Password != "" {
+		cmd := commandLogin(p.Login)
+		raw, err := cmd.CombinedOutput()
+		if err != nil {
+			out := string(raw)
+			out = strings.Replace(out, "WARNING! Using --password via the CLI is insecure. Use --password-stdin.", "", -1)
+			fmt.Println(out)
+			return fmt.Errorf("Error authenticating: exit status 1")
+		}
+	} else if p.Login.AccessToken != "" {
+		cmd := commandLoginAccessToken(p.Login, p.Login.AccessToken)
+		output, err := cmd.CombinedOutput()
+		if err != nil {
+			return fmt.Errorf("error logging in to Docker registry: %s", err)
+		}
+		if strings.Contains(string(output), "Login Succeeded") {
+			fmt.Println("Login successful")
+		} else {
+			return fmt.Errorf("login did not succeed")
 		}
 	}
 
@@ -206,52 +254,8 @@ func (p Plugin) Exec() error {
 	cmds = append(cmds, commandVersion()) // docker version
 	cmds = append(cmds, commandInfo())    // docker info
 
-	differentBaseRegistry := p.BaseImagePassword != ""
-	// login to base image registry
-	baseImageLogin := Login{
-		Registry: p.BaseImageRegistry,
-		Username: p.BaseImageUsername,
-		Password: p.BaseImagePassword,
-	}
-	var cmdPushLogin, cmdBaseImageLogin *exec.Cmd
-	if p.Login.Password != "" {
-		cmdPushLogin = commandLogin(p.Login)
-	} else if p.Login.AccessToken != "" {
-		cmdPushLogin = commandLoginAccessToken(p.Login, p.Login.AccessToken)
-	}
-
-	// login to the registry when different base image registry not found
-	if !differentBaseRegistry {
-		raw, err := cmdPushLogin.CombinedOutput()
-		if err != nil {
-			out := string(raw)
-			out = strings.Replace(out, "WARNING! Using --password via the CLI is insecure. Use --password-stdin.", "", -1)
-			fmt.Println(out)
-			return fmt.Errorf("error logging in to Docker registry: %s", err)
-		}
-		if strings.Contains(string(raw), "Login Succeeded") {
-			fmt.Println("Login successful")
-		} else {
-			return fmt.Errorf("login did not succeed")
-		}
-	} else {
-		cmdBaseImageLogin = commandLogin(baseImageLogin)
-		// 1. append login command for base image docker registry if found
-		cmds = append(cmds, cmdBaseImageLogin)
-	}
-
-	// 2. Command to only build tag with and without push options
-	//- as for push there is a possibility of authentication to different registry
-	cmds = append(cmds, commandBuildx(p.Build, p.Builder, p.Dryrun, differentBaseRegistry, p.MetadataFile)) // docker build
-
-	// 3. add cmds to login to push registry and push the tag when different base image registry is found
-	if differentBaseRegistry {
-		cmds = append(cmds, cmdPushLogin)
-		// 4. command to only push the image, if dryrun not set
-		if !p.Dryrun {
-			cmds = append(cmds, commandPush(p.Build, p.Build.Tags[0]))
-		}
-	}
+	// Command to build, tag and push
+	cmds = append(cmds, commandBuildx(p.Build, p.Builder, p.Dryrun, p.MetadataFile)) // docker build
 
 	// execute all commands in batch mode.
 	for _, cmd := range cmds {
@@ -372,6 +376,35 @@ func commandLogin(login Login) *exec.Cmd {
 	return cmd
 }
 
+// helper function to set the credentials
+func setDockerAuth(username, password, registry, baseImageUsername,
+	baseImagePassword, baseImageRegistry string) ([]byte, error) {
+	var credentials []docker.RegistryCredentials
+	// add only docker registry to the config
+	dockerConfig := docker.NewConfig()
+	if password != "" {
+		pushToRegistryCreds := docker.RegistryCredentials{
+			Registry: registry,
+			Username: username,
+			Password: password,
+		}
+		// push registry auth
+		credentials = append(credentials, pushToRegistryCreds)
+	}
+
+	if baseImageRegistry != "" {
+		pullFromRegistryCreds := docker.RegistryCredentials{
+			Registry: baseImageRegistry,
+			Username: baseImageUsername,
+			Password: baseImagePassword,
+		}
+		// base image registry auth
+		credentials = append(credentials, pullFromRegistryCreds)
+	}
+	// Creates docker config for both the registries used for authentication
+	return dockerConfig.CreateDockerConfigJson(credentials)
+}
+
 // helper to login via access token
 func commandLoginAccessToken(login Login, accessToken string) *exec.Cmd {
 	cmd := exec.Command(dockerExe,
@@ -414,7 +447,7 @@ func commandInfo() *exec.Cmd {
 }
 
 // helper function to create the docker buildx command.
-func commandBuildx(build Build, builder Builder, dryrun, differentBaseRegistry bool, metadataFile string) *exec.Cmd {
+func commandBuildx(build Build, builder Builder, dryrun bool, metadataFile string) *exec.Cmd {
 	args := []string{
 		"buildx",
 		"build",
@@ -433,13 +466,7 @@ func commandBuildx(build Build, builder Builder, dryrun, differentBaseRegistry b
 			args = append(args, "--load")
 		}
 	} else {
-		// check to keep the old behaviour unchanged, i.e one registry to pull and push the artifact
-		if !differentBaseRegistry {
-			args = append(args, "--push")
-		} else {
-			// --load will keep the built image with the specified tag locally to be pushed later
-			args = append(args, "--load")
-		}
+		args = append(args, "--push")
 	}
 	args = append(args, build.Context)
 	if metadataFile != "" {

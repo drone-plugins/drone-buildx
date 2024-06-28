@@ -213,7 +213,7 @@ func TestCommandBuildx(t *testing.T) {
 		tc := tc
 
 		t.Run(tc.name, func(t *testing.T) {
-			cmd := commandBuildx(tc.build, tc.builder, tc.dryrun, false, tc.metadata)
+			cmd := commandBuildx(tc.build, tc.builder, tc.dryrun, tc.metadata)
 
 			if !reflect.DeepEqual(cmd.String(), tc.want.String()) {
 				t.Errorf("Got cmd %v, want %v", cmd, tc.want)
