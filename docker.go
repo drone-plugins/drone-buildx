@@ -10,8 +10,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/drone-plugins/drone-plugin-lib/drone"
 	"github.com/drone-plugins/drone-buildx/config/docker"
+	"github.com/drone-plugins/drone-plugin-lib/drone"
 )
 
 type (
@@ -170,15 +170,10 @@ func (p Plugin) Exec() error {
 		os.MkdirAll(dockerHome, 0600)
 
 		path := filepath.Join(dockerHome, "config.json")
-		file, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0600)
+		err := os.WriteFile(path, []byte(p.Login.Config), 0600)
 		if err != nil {
 			return fmt.Errorf("Error writing config.json: %s", err)
 		}
-		err = os.WriteFile(path, []byte(p.Login.Config), 0600)
-		if err != nil {
-			return fmt.Errorf("Error writing config.json: %s", err)
-		}
-		file.Close()
 	}
 
 	// add base image docker credentials to the existing config file, else create new
