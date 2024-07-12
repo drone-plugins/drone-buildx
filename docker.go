@@ -177,14 +177,14 @@ func (p Plugin) Exec() error {
 	}
 
 	// add base image docker credentials to the existing config file, else create new
+	// instead of writing to config file directly, using docker's login func
 	if p.BaseImagePassword != "" {
-		cmd := exec.Command(
-			dockerExe, "login",
-			"-u", p.BaseImageUsername,
-			"-p", p.BaseImagePassword,
-			p.BaseImageRegistry,
-		)
-		fmt.Println(" Login Command is : ", cmd)
+		var baseConnectorLogin Login
+		baseConnectorLogin.Registry = p.BaseImageRegistry
+		baseConnectorLogin.Username = p.BaseImageUsername
+		baseConnectorLogin.Password = p.BaseImagePassword
+
+		cmd := commandLogin(baseConnectorLogin)
 
 		raw, err := cmd.CombinedOutput()
 		if err != nil {
