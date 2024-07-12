@@ -177,23 +177,23 @@ func (p Plugin) Exec() error {
 	}
 
 	// add base image docker credentials to the existing config file, else create new
+	// instead of writing to config file directly, using docker's login func
 	if p.BaseImagePassword != "" {
-		json, err := setDockerAuth(p.Login.Username, p.Login.Password, p.Login.Registry,
-			p.BaseImageUsername, p.BaseImagePassword, p.BaseImageRegistry)
+		var baseConnectorLogin Login
+		baseConnectorLogin.Registry = p.BaseImageRegistry
+		baseConnectorLogin.Username = p.BaseImageUsername
+		baseConnectorLogin.Password = p.BaseImagePassword
+
+		cmd := commandLogin(baseConnectorLogin)
+
+		raw, err := cmd.CombinedOutput()
 		if err != nil {
-			return fmt.Errorf("Failed to set authentication in docker config %s", err)
+			out := string(raw)
+			out = strings.Replace(out, "WARNING! Using --password via the CLI is insecure. Use --password-stdin.", "", -1)
+			fmt.Println(out)
+			return fmt.Errorf("Error authenticating base connector: exit status 1")
 		}
-		os.MkdirAll(dockerHome, 0600)
-		path := filepath.Join(dockerHome, "config.json")
-		file, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0600)
-		if err != nil {
-			return fmt.Errorf("Error opening config.json: %s", err)
-		}
-		defer file.Close()
-		_, err = file.Write(json)
-		if err != nil {
-			return fmt.Errorf("Error writing config.json: %s", err)
-		}
+
 	}
 	// login to the Docker registry
 	if p.Login.Password != "" {
@@ -366,9 +366,12 @@ func commandLogin(login Login) *exec.Cmd {
 	if login.Email != "" {
 		return commandLoginEmail(login)
 	}
-	cmd := exec.Command(dockerExe, "login", "-u", login.Username, "--password-stdin", login.Registry)
-	cmd.Stdin = strings.NewReader(login.Password)
-	return cmd
+	return exec.Command(
+		dockerExe, "login",
+		"-u", login.Username,
+		"-p", login.Password,
+		login.Registry,
+	)
 }
 
 // helper function to set the credentials
