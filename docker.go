@@ -178,19 +178,19 @@ func (p Plugin) Exec() error {
 
 	// add base image docker credentials to the existing config file, else create new
 	// instead of writing to config file directly, using docker's login func
-	if p.BaseImagePassword != "" {
-		var baseConnectorLogin Login
-		baseConnectorLogin.Registry = p.BaseImageRegistry
-		baseConnectorLogin.Username = p.BaseImageUsername
-		baseConnectorLogin.Password = p.BaseImagePassword
-
-		cmd := commandLogin(baseConnectorLogin)
+	if p.BaseImageRegistry != "" {
 		if p.BaseImageUsername == "" {
 			return fmt.Errorf("Username cannot be empty. The base image connector requires authenticated access. Please either use an authenticated connector, or remove the base image connector.")
 		}
 		if p.BaseImagePassword == "" {
 			return fmt.Errorf("Password cannot be empty. The base image connector requires authenticated access. Please either use an authenticated connector, or remove the base image connector.")
 		}
+		var baseConnectorLogin Login
+		baseConnectorLogin.Registry = p.BaseImageRegistry
+		baseConnectorLogin.Username = p.BaseImageUsername
+		baseConnectorLogin.Password = p.BaseImagePassword
+
+		cmd := commandLogin(baseConnectorLogin)
 
 		raw, err := cmd.CombinedOutput()
 		if err != nil {
