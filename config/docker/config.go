@@ -54,10 +54,10 @@ func (c *Config) CreateDockerConfigJson(credentials []RegistryCredentials) ([]by
 		if cred.Registry != "" {
 
 			if cred.Username == "" {
-				return nil, fmt.Errorf("Username must be specified for registry: %s", cred.Registry)
+				return nil, fmt.Errorf("Username cannot be null, anonymous connector is not supported for base image pull: %s", cred.Registry)
 			}
 			if cred.Password == "" {
-				return nil, fmt.Errorf("Password must be specified for registry: %s", cred.Registry)
+				return nil, fmt.Errorf("Password cannot be null, anonymous connector is not supported for base image pull: %s", cred.Registry)
 			}
 			c.SetAuth(cred.Registry, cred.Username, cred.Password)
 		}
