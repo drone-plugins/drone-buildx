@@ -314,6 +314,12 @@ func Run() {
 			EnvVar: "PLUGIN_BUILDER_DRIVER_OPTS",
 			Value:  new(CustomStringSliceFlag),
 		},
+		cli.GenericFlag{
+			Name:   "builder-driver-opts-new",
+			Usage:  "buildx builder driver opts new",
+			EnvVar: "PLUGIN_BUILDER_DRIVER_OPTS_NEW",
+			Value:  new(CustomStringSliceFlag),
+		},
 		cli.StringFlag{
 			Name:   "builder-remote-conn",
 			EnvVar: "PLUGIN_BUILDER_REMOTE_CONN",
@@ -421,10 +427,11 @@ func run(c *cli.Context) error {
 			ArtifactRegistry: c.String("artifact.registry"),
 		},
 		Builder: Builder{
-			Name:       c.String("builder-name"),
-			Driver:     c.String("builder-driver"),
-			DriverOpts: c.Generic("builder-driver-opts").(*CustomStringSliceFlag).GetValue(),
-			RemoteConn: c.String("builder-remote-conn"),
+			Name:          c.String("builder-name"),
+			Driver:        c.String("builder-driver"),
+			DriverOpts:    c.Generic("builder-driver-opts").(*CustomStringSliceFlag).GetValue(),
+			DriverOptsNew: c.Generic("builder-driver-opts-new").(*CustomStringSliceFlag).GetValue(),
+			RemoteConn:    c.String("builder-remote-conn"),
 		},
 		BaseImageRegistry: c.String("docker.baseimageregistry"),
 		BaseImageUsername: c.String("docker.baseimageusername"),
