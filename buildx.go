@@ -10,12 +10,12 @@ const (
 	remoteDriver          = "remote"
 )
 
-func cmdSetupBuildx(builder Builder) *exec.Cmd {
+func cmdSetupBuildx(builder Builder, driverOpts []string) *exec.Cmd {
 	args := []string{"buildx", "create", "--use", "--driver", builder.Driver}
 	if builder.Name != "" {
 		args = append(args, "--name", builder.Name)
 	}
-	for _, opt := range builder.DriverOpts {
+	for _, opt := range driverOpts {
 		args = append(args, "--driver-opt", opt)
 	}
 	if builder.RemoteConn != "" && builder.Driver == remoteDriver {

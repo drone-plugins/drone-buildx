@@ -34,10 +34,11 @@ type (
 	}
 
 	Builder struct {
-		Name       string   // Buildx builder name
-		Driver     string   // Buildx driver type
-		DriverOpts []string // Buildx driver opts
-		RemoteConn string   // Buildx remote connection endpoint
+		Name          string   // Buildx builder name
+		Driver        string   // Buildx driver type
+		DriverOpts    []string // Buildx driver opts
+		DriverOptsNew []string // Buildx driver opts new
+		RemoteConn    string   // Buildx remote connection endpoint
 	}
 
 	// Login defines Docker login parameters.
@@ -230,10 +231,26 @@ func (p Plugin) Exec() error {
 	}
 
 	if p.Builder.Driver != "" && p.Builder.Driver != defaultDriver {
-		createCmd := cmdSetupBuildx(p.Builder)
-		raw, err := createCmd.Output()
-		if err != nil {
-			return fmt.Errorf("error while creating buildx builder: %s and err: %s", string(raw), err)
+		var (
+			raw []byte
+			err error
+		)
+		shouldFallback := true
+		if len(p.Builder.DriverOptsNew) != 0 {
+			createCmd := cmdSetupBuildx(p.Builder, p.Builder.DriverOptsNew)
+			raw, err = createCmd.Output()
+			if err == nil {
+				shouldFallback = false
+			} else {
+				fmt.Printf("Unable to setup buildx with new driver opts: %s\n", err)
+			}
+		}
+		if shouldFallback {
+			createCmd := cmdSetupBuildx(p.Builder, p.Builder.DriverOpts)
+			raw, err = createCmd.Output()
+			if err != nil {
+				return fmt.Errorf("error while creating buildx builder: %s and err: %s", string(raw), err)
+			}
 		}
 		p.Builder.Name = strings.TrimSuffix(string(raw), "\n")
 
