@@ -275,6 +275,16 @@ func Run() {
 			Usage:  "secret key value pair eg id=MYSECRET",
 			EnvVar: "PLUGIN_SECRET",
 		},
+		cli.BoolFlag{
+			Name:   "encoded-secrets-from-env",
+			Usage:  "base64 encoded values",
+			EnvVar: "PLUGIN_ENCODED_ENV_SECRET",
+		},
+		cli.BoolFlag{
+			Name:   "decode-env-secret",
+			Usage:  "decode env values default-false",
+			EnvVar: "PLUGIN_DECODE_ENV_SECRET",
+		},
 		cli.StringSliceFlag{
 			Name:   "secrets-from-env",
 			Usage:  "secret key value pair eg secret_name=secret",
@@ -409,6 +419,8 @@ func run(c *cli.Context) error {
 			Platform:    c.String("platform"),
 			SSHAgentKey: c.String("ssh-agent-key"),
 			BuildxLoad:  c.Bool("buildx-load"),
+			DecodeEnvSecret:  c.Bool("decode-env-secret"),
+			EncodedSecretEnvs: c.StringSlice("encoded-secrets-from-env")
 		},
 		Daemon: Daemon{
 			Registry:         c.String("docker.registry"),
