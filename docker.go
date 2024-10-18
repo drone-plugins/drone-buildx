@@ -4,7 +4,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"log"
+	//"log"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -55,35 +55,36 @@ type (
 
 	// Build defines Docker build parameters.
 	Build struct {
-		Remote          string   // Git remote URL
-		Name            string   // Docker build using default named tag
-		Dockerfile      string   // Docker build Dockerfile
-		Context         string   // Docker build context
-		Tags            []string // Docker build tags
-		Args            []string // Docker build args
-		ArgsEnv         []string // Docker build args from env
-		Target          string   // Docker build target
-		Squash          bool     // Docker build squash
-		Pull            bool     // Docker build pull
-		CacheFrom       []string // Docker buildx cache-from
-		CacheTo         []string // Docker buildx cache-to
-		Compress        bool     // Docker build compress
-		Repo            string   // Docker build repository
-		LabelSchema     []string // label-schema Label map
-		AutoLabel       bool     // auto-label bool
-		Labels          []string // Label map
-		Link            string   // Git repo link
-		NoCache         bool     // Docker build no-cache
-		Secret          string   // secret keypair
-		SecretEnvs      []string // Docker build secrets with env var as source
-		SecretFiles     []string // Docker build secrets with file as source
-		AddHost         []string // Docker build add-host
-		Quiet           bool     // Docker build quiet
-		Platform        string   // Docker build platform
-		SSHAgentKey     string   // Docker build ssh agent key
-		SSHKeyPath      string   // Docker build ssh key path
-		BuildxLoad      bool     // Docker buildx --load
-		DecodeEnvSecret bool     // Decode the secret value in env
+		Remote            string   // Git remote URL
+		Name              string   // Docker build using default named tag
+		Dockerfile        string   // Docker build Dockerfile
+		Context           string   // Docker build context
+		Tags              []string // Docker build tags
+		Args              []string // Docker build args
+		ArgsEnv           []string // Docker build args from env
+		Target            string   // Docker build target
+		Squash            bool     // Docker build squash
+		Pull              bool     // Docker build pull
+		CacheFrom         []string // Docker buildx cache-from
+		CacheTo           []string // Docker buildx cache-to
+		Compress          bool     // Docker build compress
+		Repo              string   // Docker build repository
+		LabelSchema       []string // label-schema Label map
+		AutoLabel         bool     // auto-label bool
+		Labels            []string // Label map
+		Link              string   // Git repo link
+		NoCache           bool     // Docker build no-cache
+		Secret            string   // secret keypair
+		SecretEnvs        []string // Docker build secrets with env var as source
+		SecretFiles       []string // Docker build secrets with file as source
+		AddHost           []string // Docker build add-host
+		Quiet             bool     // Docker build quiet
+		Platform          string   // Docker build platform
+		SSHAgentKey       string   // Docker build ssh agent key
+		SSHKeyPath        string   // Docker build ssh key path
+		BuildxLoad        bool     // Docker buildx --load
+		DecodeEnvSecret   bool     // Decode the secret value in env
+		EncodedSecretEnvs []string // Docker build secrets that are encoded using base64
 	}
 
 	// Plugin defines the Docker plugin parameters.
@@ -526,8 +527,16 @@ func commandBuildx(build Build, builder Builder, dryrun bool, metadataFile strin
 		args = append(args, "--secret", build.Secret)
 	}
 	for _, secret := range build.SecretEnvs {
-		if arg, err := getSecretStringCmdArg(secret, build.DecodeEnvSecret, build.EncodedSecretEnvs); err == nil {
+		if arg, err := getSecretStringCmdArg(secret, build.DecodeEnvSecret); err == nil {
 			args = append(args, "--secret", arg)
+		}
+	}
+	// Handle base64 encoded secrets
+	if build.DecodeEnvSecret {
+		for _, encodedSecret := range build.EncodedSecretEnvs {
+			if arg, err := getSecretStringCmdArg(encodedSecret, build.DecodeEnvSecret); err == nil {
+				args = append(args, "--secret", arg)
+			}
 		}
 	}
 	for _, secret := range build.SecretFiles {
@@ -574,20 +583,10 @@ func commandBuildx(build Build, builder Builder, dryrun bool, metadataFile strin
 	return exec.Command(dockerExe, args...)
 }
 
-func getSecretStringCmdArg(kvp string, decode bool, e_kvp string) (string, error) {
+func getSecretStringCmdArg(kvp string, decode bool) (string, error) {
 	if decode {
 		// Handle base64 encoded secrets
-		decodedResult, err := getSecretCmdArg(e_kvp, false, true)
-		if err != nil {
-			return "", fmt.Errorf("error decoding secret: %w", err)
-		}
-		// Handle regular secrets
-		regularResult, err := getSecretCmdArg(kvp, false, false)
-		if err != nil {
-			return "", fmt.Errorf("error getting regular secret: %w", err)
-		}
-		// Combine calling for base64 and regular docker secrets
-		return regularResult + decodedResult, nil
+		return getSecretCmdArg(kvp, false, true)
 	}
 	// Original behavior
 	return getSecretCmdArg(kvp, false, false)
@@ -602,7 +601,7 @@ func getSecretCmdArg(kvp string, file bool, decode bool) (string, error) {
 	if delimIndex == -1 {
 		return "", fmt.Errorf("%s is not a valid secret", kvp)
 	}
-	log.Printf("kvp string : ", kvp)
+	//log.Printf("kvp string : ", kvp)
 
 	key := kvp[:delimIndex]
 	value := kvp[delimIndex+1:]
@@ -616,7 +615,7 @@ func getSecretCmdArg(kvp string, file bool, decode bool) (string, error) {
 	}
 	if decode {
 		decodedValue, err := base64.StdEncoding.DecodeString(value)
-		log.Printf("decoded value of secret : ", decodedValue)
+		//log.Printf("decoded value of secret : ", decodedValue)
 		if err != nil {
 			return "", fmt.Errorf("failed to decode base64 value: %v", err)
 		}

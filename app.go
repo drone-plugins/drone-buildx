@@ -420,7 +420,7 @@ func run(c *cli.Context) error {
 			SSHAgentKey: c.String("ssh-agent-key"),
 			BuildxLoad:  c.Bool("buildx-load"),
 			DecodeEnvSecret:  c.Bool("decode-env-secret"),
-			EncodedSecretEnvs: c.StringSlice("encoded-secrets-from-env")
+			EncodedSecretEnvs: c.StringSlice("encoded-secrets-from-env"),
 		},
 		Daemon: Daemon{
 			Registry:         c.String("docker.registry"),
