@@ -207,6 +207,38 @@ func TestCommandBuildx(t *testing.T) {
 				"--metadata-file /tmp/metadata.json",
 			),
 		},
+		// Add this new test case
+		{
+			name: "decoded secret from env var",
+			build: Build{
+				Name:       "plugins/drone-docker:latest",
+				Dockerfile: "Dockerfile",
+				Context:    ".",
+				SecretEnvs: []string{
+					"foo_secret=FOO_SECRET_ENV_VAR",
+				},
+				EncodedSecretEnvs: []string{
+					"encoded_secret=RU5DT0RFRF9TRUNSRVRfRU5WX1ZBUg==", // Base64 for "ENCODED_SECRET_ENV_VAR"
+				},
+				DecodeEnvSecret: true,
+				Repo:            "plugins/drone-docker",
+				Tags:            []string{"latest"},
+			},
+			want: exec.Command(
+				dockerExe,
+				"buildx",
+				"build",
+				"--rm=true",
+				"-f",
+				"Dockerfile",
+				"-t",
+				"plugins/drone-docker:latest",
+				"--push",
+				".",
+				"--secret", "id=foo_secret,env=FOO_SECRET_ENV_VAR",
+				"--secret", "id=encoded_secret,env=ENCODED_SECRET_ENV_VAR",
+			),
+		},
 	}
 
 	for _, tc := range tcs {
