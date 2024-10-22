@@ -4,6 +4,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -489,7 +490,6 @@ func updateEnvWithDecodedValue(encodedEnvList []string) error {
 			return fmt.Errorf("failed to set environment variable %s: %v", envName, err)
 		}
 	}
-
 	return nil
 }
 
@@ -553,7 +553,7 @@ func commandBuildx(build Build, builder Builder, dryrun bool, metadataFile strin
 	if build.DecodeEnvSecret {
 		err := updateEnvWithDecodedValue(build.EncodedSecretEnvs)
 		if err != nil {
-			fmt.Errorf("failed to decode harness secrets used as docker secrets in the build command: %v", err)
+			log.Printf("failed to decode harness secrets used as docker secrets in the build command: %v", err)
 		}
 	}
 	for _, secret := range build.SecretEnvs {
