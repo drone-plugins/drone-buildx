@@ -1,8 +1,10 @@
 package docker
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -53,34 +55,36 @@ type (
 
 	// Build defines Docker build parameters.
 	Build struct {
-		Remote      string   // Git remote URL
-		Name        string   // Docker build using default named tag
-		Dockerfile  string   // Docker build Dockerfile
-		Context     string   // Docker build context
-		Tags        []string // Docker build tags
-		Args        []string // Docker build args
-		ArgsEnv     []string // Docker build args from env
-		Target      string   // Docker build target
-		Squash      bool     // Docker build squash
-		Pull        bool     // Docker build pull
-		CacheFrom   []string // Docker buildx cache-from
-		CacheTo     []string // Docker buildx cache-to
-		Compress    bool     // Docker build compress
-		Repo        string   // Docker build repository
-		LabelSchema []string // label-schema Label map
-		AutoLabel   bool     // auto-label bool
-		Labels      []string // Label map
-		Link        string   // Git repo link
-		NoCache     bool     // Docker build no-cache
-		Secret      string   // secret keypair
-		SecretEnvs  []string // Docker build secrets with env var as source
-		SecretFiles []string // Docker build secrets with file as source
-		AddHost     []string // Docker build add-host
-		Quiet       bool     // Docker build quiet
-		Platform    string   // Docker build platform
-		SSHAgentKey string   // Docker build ssh agent key
-		SSHKeyPath  string   // Docker build ssh key path
-		BuildxLoad  bool     // Docker buildx --load
+		Remote            string   // Git remote URL
+		Name              string   // Docker build using default named tag
+		Dockerfile        string   // Docker build Dockerfile
+		Context           string   // Docker build context
+		Tags              []string // Docker build tags
+		Args              []string // Docker build args
+		ArgsEnv           []string // Docker build args from env
+		Target            string   // Docker build target
+		Squash            bool     // Docker build squash
+		Pull              bool     // Docker build pull
+		CacheFrom         []string // Docker buildx cache-from
+		CacheTo           []string // Docker buildx cache-to
+		Compress          bool     // Docker build compress
+		Repo              string   // Docker build repository
+		LabelSchema       []string // label-schema Label map
+		AutoLabel         bool     // auto-label bool
+		Labels            []string // Label map
+		Link              string   // Git repo link
+		NoCache           bool     // Docker build no-cache
+		Secret            string   // secret keypair
+		SecretEnvs        []string // Docker build secrets with env var as source
+		SecretFiles       []string // Docker build secrets with file as source
+		AddHost           []string // Docker build add-host
+		Quiet             bool     // Docker build quiet
+		Platform          string   // Docker build platform
+		SSHAgentKey       string   // Docker build ssh agent key
+		SSHKeyPath        string   // Docker build ssh key path
+		BuildxLoad        bool     // Docker buildx --load
+		DecodeEnvSecret   bool     // Decode the secret value in env
+		EncodedSecretEnvs []string // Docker build env secrets that are encoded using base64
 	}
 
 	// Plugin defines the Docker plugin parameters.
@@ -150,7 +154,6 @@ func (p Plugin) Exec() error {
 		}
 		time.Sleep(time.Second * 1)
 	}
-
 	// for debugging purposes, log the type of authentication
 	// credentials that have been provided.
 	switch {
@@ -165,7 +168,6 @@ func (p Plugin) Exec() error {
 	default:
 		fmt.Println("Registry credentials or Docker config not provided. Guest mode enabled.")
 	}
-
 	// create Auth Config File
 	if p.Login.Config != "" {
 		os.MkdirAll(dockerHome, 0600)
@@ -467,6 +469,30 @@ func commandInfo() *exec.Cmd {
 	return exec.Command(dockerExe, "info")
 }
 
+// helper function to update env var value from base64 encoded to decoded
+func updateEnvWithDecodedValue(encodedEnvList []string) error {
+	for _, envName := range encodedEnvList {
+		// Get the current base64 encoded value
+		encodedValue := os.Getenv(envName)
+		if encodedValue == "" {
+			return fmt.Errorf("environment variable %s not found", envName)
+		}
+
+		// Decode the base64 value
+		decodedBytes, err := base64.StdEncoding.DecodeString(encodedValue)
+		if err != nil {
+			return fmt.Errorf("failed to decode value for %s: %v", envName, err)
+		}
+
+		// Update the environment variable with the decoded value
+		err = os.Setenv(envName, string(decodedBytes))
+		if err != nil {
+			return fmt.Errorf("failed to set environment variable %s: %v", envName, err)
+		}
+	}
+	return nil
+}
+
 // helper function to create the docker buildx command.
 func commandBuildx(build Build, builder Builder, dryrun bool, metadataFile string) *exec.Cmd {
 	args := []string{
@@ -522,6 +548,13 @@ func commandBuildx(build Build, builder Builder, dryrun bool, metadataFile strin
 	}
 	if build.Secret != "" {
 		args = append(args, "--secret", build.Secret)
+	}
+	// update the list of env variables that have been encoded with base64
+	if build.DecodeEnvSecret {
+		err := updateEnvWithDecodedValue(build.EncodedSecretEnvs)
+		if err != nil {
+			log.Printf("failed to decode harness secrets used as docker secrets in the build command: %v", err)
+		}
 	}
 	for _, secret := range build.SecretEnvs {
 		if arg, err := getSecretStringCmdArg(secret); err == nil {
