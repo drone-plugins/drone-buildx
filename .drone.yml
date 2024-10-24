@@ -486,7 +486,7 @@ steps:
         - release/drone-buildx-darwin-amd64.zst
         - release/drone-buildx-windows-amd64.zst
       api_key:
-        from_secret: github_token
+        from_secret: cireporunner_github_token
     when:
       event:
         - tag
