@@ -1,10 +1,8 @@
 package docker
 
 import (
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -83,8 +81,6 @@ type (
 		SSHAgentKey       string   // Docker build ssh agent key
 		SSHKeyPath        string   // Docker build ssh key path
 		BuildxLoad        bool     // Docker buildx --load
-		DecodeEnvSecret   bool     // Decode the secret value in env
-		EncodedSecretEnvs []string // Docker build env secrets that are encoded using base64
 	}
 
 	// Plugin defines the Docker plugin parameters.
@@ -469,30 +465,6 @@ func commandInfo() *exec.Cmd {
 	return exec.Command(dockerExe, "info")
 }
 
-// helper function to update env var value from base64 encoded to decoded
-func updateEnvWithDecodedValue(encodedEnvList []string) error {
-	for _, envName := range encodedEnvList {
-		// Get the current base64 encoded value
-		encodedValue := os.Getenv(envName)
-		if encodedValue == "" {
-			return fmt.Errorf("environment variable %s not found", envName)
-		}
-
-		// Decode the base64 value
-		decodedBytes, err := base64.StdEncoding.DecodeString(encodedValue)
-		if err != nil {
-			return fmt.Errorf("failed to decode value for %s: %v", envName, err)
-		}
-
-		// Update the environment variable with the decoded value
-		err = os.Setenv(envName, string(decodedBytes))
-		if err != nil {
-			return fmt.Errorf("failed to set environment variable %s: %v", envName, err)
-		}
-	}
-	return nil
-}
-
 // helper function to create the docker buildx command.
 func commandBuildx(build Build, builder Builder, dryrun bool, metadataFile string) *exec.Cmd {
 	args := []string{
@@ -548,13 +520,6 @@ func commandBuildx(build Build, builder Builder, dryrun bool, metadataFile strin
 	}
 	if build.Secret != "" {
 		args = append(args, "--secret", build.Secret)
-	}
-	// update the list of env variables that have been encoded with base64
-	if build.DecodeEnvSecret {
-		err := updateEnvWithDecodedValue(build.EncodedSecretEnvs)
-		if err != nil {
-			log.Printf("failed to decode harness secrets used as docker secrets in the build command: %v", err)
-		}
 	}
 	for _, secret := range build.SecretEnvs {
 		if arg, err := getSecretStringCmdArg(secret); err == nil {

@@ -207,89 +207,11 @@ func TestCommandBuildx(t *testing.T) {
 				"--metadata-file /tmp/metadata.json",
 			),
 		},
-		{
-			name: "encoded secrets from env",
-			build: Build{
-				Name:       "plugins/drone-docker:latest",
-				Dockerfile: "Dockerfile",
-				Context:    ".",
-				SecretEnvs: []string{
-					"foo_secret=FOO_SECRET_ENV_VAR",
-				},
-				EncodedSecretEnvs: []string{
-					"ENCODED_SECRET",
-				},
-				DecodeEnvSecret: true,
-				Repo:            "plugins/drone-docker",
-				Tags:            []string{"latest"},
-			},
-			want: exec.Command(
-				dockerExe,
-				"buildx",
-				"build",
-				"--rm=true",
-				"-f",
-				"Dockerfile",
-				"-t",
-				"plugins/drone-docker:latest",
-				"--push",
-				".",
-				"--secret", "id=foo_secret,env=FOO_SECRET_ENV_VAR",
-			),
-		},
-		{
-			name: "multiple secrets with encoding",
-			build: Build{
-				Name:       "plugins/drone-docker:latest",
-				Dockerfile: "Dockerfile",
-				Context:    ".",
-				SecretEnvs: []string{
-					"foo_secret=FOO_SECRET_ENV_VAR",
-					"bar_secret=BAR_SECRET_ENV_VAR",
-				},
-				EncodedSecretEnvs: []string{
-					"ENCODED_SECRET1",
-					"ENCODED_SECRET2",
-				},
-				DecodeEnvSecret: true,
-				Repo:            "plugins/drone-docker",
-				Tags:            []string{"latest"},
-			},
-			want: exec.Command(
-				dockerExe,
-				"buildx",
-				"build",
-				"--rm=true",
-				"-f",
-				"Dockerfile",
-				"-t",
-				"plugins/drone-docker:latest",
-				"--push",
-				".",
-				"--secret", "id=foo_secret,env=FOO_SECRET_ENV_VAR",
-				"--secret", "id=bar_secret,env=BAR_SECRET_ENV_VAR",
-			),
-		},
 	}
 
 	for _, tc := range tcs {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
-			// Set up test environment variables if needed
-			if tc.build.DecodeEnvSecret && len(tc.build.EncodedSecretEnvs) > 0 {
-				// Set sample encoded values
-				os.Setenv("ENCODED_SECRET", "SGVsbG8gV29ybGQ=")  // "Hello World" in base64
-				os.Setenv("ENCODED_SECRET1", "VGVzdFZhbHVlMQ==") // "TestValue1" in base64
-				os.Setenv("ENCODED_SECRET2", "VGVzdFZhbHVlMg==") // "TestValue2" in base64
-
-				// Clean up after test
-				defer func() {
-					os.Unsetenv("ENCODED_SECRET")
-					os.Unsetenv("ENCODED_SECRET1")
-					os.Unsetenv("ENCODED_SECRET2")
-				}()
-			}
-
 			cmd := commandBuildx(tc.build, tc.builder, tc.dryrun, tc.metadata)
 			if !reflect.DeepEqual(cmd.String(), tc.want.String()) {
 				t.Errorf("Got cmd %v, want %v", cmd, tc.want)
