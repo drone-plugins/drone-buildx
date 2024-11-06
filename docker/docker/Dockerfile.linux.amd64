@@ -6,7 +6,7 @@ ENV DOCKER_BUILDKIT=1
 ENV BUILDKIT_PROGRESS=plain
 ENV DOCKER_CLI_EXPERIMENTAL=enabled
 
-ARG BUILDX_URL=https://github.com/docker/buildx/releases/download/v0.14.1/buildx-v0.14.1.linux-amd64
+ARG BUILDX_URL=https://github.com/docker/buildx/releases/download/v0.18.0/buildx-v0.14.1.linux-amd64
 
 RUN mkdir -p $HOME/.docker/cli-plugins && \
     wget -O $HOME/.docker/cli-plugins/docker-buildx $BUILDX_URL && \
