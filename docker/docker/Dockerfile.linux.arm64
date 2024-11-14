@@ -1,4 +1,4 @@
-FROM arm64v8/docker:20.10.14-dind
+FROM arm64v8/docker:27.3.1-dind
 
 ENV DOCKER_HOST=unix:///var/run/docker.sock
 
@@ -6,7 +6,7 @@ ENV DOCKER_BUILDKIT=1
 ENV BUILDKIT_PROGRESS=plain
 ENV DOCKER_CLI_EXPERIMENTAL=enabled
 
-ARG BUILDX_URL=https://github.com/docker/buildx/releases/download/v0.14.1/buildx-v0.14.1.linux-arm64
+ARG BUILDX_URL=https://github.com/docker/buildx/releases/download/v0.18.0/buildx-v0.18.0.linux-arm64
 
 RUN mkdir -p $HOME/.docker/cli-plugins && \
     wget -O $HOME/.docker/cli-plugins/docker-buildx $BUILDX_URL && \
