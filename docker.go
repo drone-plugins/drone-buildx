@@ -1,6 +1,8 @@
 package docker
 
 import (
+	"bytes"
+	"embed"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -53,34 +55,34 @@ type (
 
 	// Build defines Docker build parameters.
 	Build struct {
-		Remote            string   // Git remote URL
-		Name              string   // Docker build using default named tag
-		Dockerfile        string   // Docker build Dockerfile
-		Context           string   // Docker build context
-		Tags              []string // Docker build tags
-		Args              []string // Docker build args
-		ArgsEnv           []string // Docker build args from env
-		Target            string   // Docker build target
-		Squash            bool     // Docker build squash
-		Pull              bool     // Docker build pull
-		CacheFrom         []string // Docker buildx cache-from
-		CacheTo           []string // Docker buildx cache-to
-		Compress          bool     // Docker build compress
-		Repo              string   // Docker build repository
-		LabelSchema       []string // label-schema Label map
-		AutoLabel         bool     // auto-label bool
-		Labels            []string // Label map
-		Link              string   // Git repo link
-		NoCache           bool     // Docker build no-cache
-		Secret            string   // secret keypair
-		SecretEnvs        []string // Docker build secrets with env var as source
-		SecretFiles       []string // Docker build secrets with file as source
-		AddHost           []string // Docker build add-host
-		Quiet             bool     // Docker build quiet
-		Platform          string   // Docker build platform
-		SSHAgentKey       string   // Docker build ssh agent key
-		SSHKeyPath        string   // Docker build ssh key path
-		BuildxLoad        bool     // Docker buildx --load
+		Remote      string   // Git remote URL
+		Name        string   // Docker build using default named tag
+		Dockerfile  string   // Docker build Dockerfile
+		Context     string   // Docker build context
+		Tags        []string // Docker build tags
+		Args        []string // Docker build args
+		ArgsEnv     []string // Docker build args from env
+		Target      string   // Docker build target
+		Squash      bool     // Docker build squash
+		Pull        bool     // Docker build pull
+		CacheFrom   []string // Docker buildx cache-from
+		CacheTo     []string // Docker buildx cache-to
+		Compress    bool     // Docker build compress
+		Repo        string   // Docker build repository
+		LabelSchema []string // label-schema Label map
+		AutoLabel   bool     // auto-label bool
+		Labels      []string // Label map
+		Link        string   // Git repo link
+		NoCache     bool     // Docker build no-cache
+		Secret      string   // secret keypair
+		SecretEnvs  []string // Docker build secrets with env var as source
+		SecretFiles []string // Docker build secrets with file as source
+		AddHost     []string // Docker build add-host
+		Quiet       bool     // Docker build quiet
+		Platform    string   // Docker build platform
+		SSHAgentKey string   // Docker build ssh agent key
+		SSHKeyPath  string   // Docker build ssh key path
+		BuildxLoad  bool     // Docker buildx --load
 	}
 
 	// Plugin defines the Docker plugin parameters.
@@ -126,7 +128,17 @@ type (
 	TagStruct struct {
 		Tag string `json:"Tag"`
 	}
+
+	BuildKitConfig struct {
+		BuildkitVersion string `json:"buildkit_version"`
+	}
 )
+
+//go:embed buildkit/buildkit.tar
+var buildkitTarball embed.FS
+
+//go:embed buildkit/version.json
+var buildKitVersionFile embed.FS
 
 // Exec executes the plugin step
 func (p Plugin) Exec() error {
@@ -135,7 +147,6 @@ func (p Plugin) Exec() error {
 	if !p.Daemon.Disabled {
 		p.startDaemon()
 	}
-
 	// poll the docker daemon until it is started. This ensures the daemon is
 	// ready to accept connections before we proceed.
 	for i := 0; ; i++ {
@@ -228,19 +239,66 @@ func (p Plugin) Exec() error {
 		p.Builder.Driver = dockerContainerDriver
 	}
 
+	configData, err := buildKitVersionFile.ReadFile("buildkit/version.json")
+	if err != nil {
+		return fmt.Errorf("Failed to read embedded buildkit version.json: %v", err)
+	}
+
+	var config BuildKitConfig
+	if err := json.Unmarshal(configData, &config); err != nil {
+		return fmt.Errorf("Failed to buildkit version.json: %v", err)
+	}
+
+	fmt.Printf("Using BuildKit Version: %s\n", config.BuildkitVersion)
+
+	// Read the tarball from the embedded filesystem
+	data, err := buildkitTarball.ReadFile("buildkit/buildkit.tar")
+	if err != nil {
+		panic(err)
+	}
+
+	loadCmd := commandLoad()
+	loadCmd.Stdin = bytes.NewReader(data)
+	loadCmd.Run()
+	if err := loadCmd.Run(); err != nil {
+		return fmt.Errorf("error while loading buildkit image: %s", err)
+	}
+	
+
+
 	if p.Builder.Driver != "" && p.Builder.Driver != defaultDriver {
 		var (
 			raw []byte
 			err error
 		)
+
+		// Replace the image in driver opts with the buildkit version
+		for i, opt := range p.Builder.DriverOpts {
+			if strings.HasPrefix(opt, "image=") {
+				// Replace the part after image= with config.BuildkitVersion
+				p.Builder.DriverOpts[i] = "image=" + config.BuildkitVersion
+			}
+		}
+
 		shouldFallback := true
 		if len(p.Builder.DriverOptsNew) != 0 {
 			createCmd := cmdSetupBuildx(p.Builder, p.Builder.DriverOptsNew)
 			raw, err = createCmd.Output()
-			if err == nil {
-				shouldFallback = false
-			} else {
+			if err != nil {
 				fmt.Printf("Unable to setup buildx with new driver opts: %s\n", err)
+				// Mark that the fallback will be used
+				shouldFallback = true
+			} else {
+				p.Builder.Name = strings.TrimSuffix(string(raw), "\n")
+				// If builder creation is successful, inspect the builder
+				inspectCmd := cmdInspectBuildx(p.Builder.Name)
+				if err := inspectCmd.Run(); err != nil {
+					fmt.Printf("Error while inspecting buildx builder with new driver opts: %s\n", err)
+					// Mark that the fallback will be used
+					shouldFallback = true
+				} else {
+					shouldFallback = false
+				}
 			}
 		}
 		if shouldFallback {
@@ -249,12 +307,11 @@ func (p Plugin) Exec() error {
 			if err != nil {
 				return fmt.Errorf("error while creating buildx builder: %s and err: %s", string(raw), err)
 			}
-		}
-		p.Builder.Name = strings.TrimSuffix(string(raw), "\n")
-
-		inspectCmd := cmdInspectBuildx(p.Builder.Name)
-		if err := inspectCmd.Run(); err != nil {
-			return fmt.Errorf("error while bootstraping buildx builder: %s", err)
+			p.Builder.Name = strings.TrimSuffix(string(raw), "\n")
+			inspectCmd := cmdInspectBuildx(p.Builder.Name)
+			if err := inspectCmd.Run(); err != nil {
+				return fmt.Errorf("error while bootstraping buildx builder: %s", err)
+			}
 		}
 
 		removeCmd := cmdRemoveBuildx(p.Builder.Name)
@@ -267,6 +324,7 @@ func (p Plugin) Exec() error {
 	addProxyBuildArgs(&p.Build)
 
 	var cmds []*exec.Cmd
+
 	cmds = append(cmds, commandVersion()) // docker version
 	cmds = append(cmds, commandInfo())    // docker info
 
@@ -717,6 +775,10 @@ func isCommandRmi(args []string) bool {
 
 func commandRmi(tag string) *exec.Cmd {
 	return exec.Command(dockerExe, "rmi", tag)
+}
+
+func commandLoad() *exec.Cmd {
+	return exec.Command(dockerExe, "image", "load")
 }
 
 func writeSSHPrivateKey(key string) (path string, err error) {

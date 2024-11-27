@@ -12,6 +12,13 @@ Drone plugin uses Docker-in-Docker to build and publish Docker images to a conta
 
 ## Build
 
+
+Run the release script for buildkit
+
+```console
+sh buildkit/release.sh 
+```
+
 Build the binaries with the following commands:
 
 ```console
