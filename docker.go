@@ -263,7 +263,6 @@ func (p Plugin) Exec() error {
 
 	loadCmd := commandLoad()
 	loadCmd.Stdin = bytes.NewReader(data)
-	loadCmd.Run()
 	if loadedBuildkitTarball {
 		if err := loadCmd.Run(); err != nil {
 			fmt.Printf("error while loading buildkit image: %s", err)
