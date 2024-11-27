@@ -53,34 +53,36 @@ type (
 
 	// Build defines Docker build parameters.
 	Build struct {
-		Remote            string   // Git remote URL
-		Name              string   // Docker build using default named tag
-		Dockerfile        string   // Docker build Dockerfile
-		Context           string   // Docker build context
-		Tags              []string // Docker build tags
-		Args              []string // Docker build args
-		ArgsEnv           []string // Docker build args from env
-		Target            string   // Docker build target
-		Squash            bool     // Docker build squash
-		Pull              bool     // Docker build pull
-		CacheFrom         []string // Docker buildx cache-from
-		CacheTo           []string // Docker buildx cache-to
-		Compress          bool     // Docker build compress
-		Repo              string   // Docker build repository
-		LabelSchema       []string // label-schema Label map
-		AutoLabel         bool     // auto-label bool
-		Labels            []string // Label map
-		Link              string   // Git repo link
-		NoCache           bool     // Docker build no-cache
-		Secret            string   // secret keypair
-		SecretEnvs        []string // Docker build secrets with env var as source
-		SecretFiles       []string // Docker build secrets with file as source
-		AddHost           []string // Docker build add-host
-		Quiet             bool     // Docker build quiet
-		Platform          string   // Docker build platform
-		SSHAgentKey       string   // Docker build ssh agent key
-		SSHKeyPath        string   // Docker build ssh key path
-		BuildxLoad        bool     // Docker buildx --load
+		Remote      string   // Git remote URL
+		Name        string   // Docker build using default named tag
+		Dockerfile  string   // Docker build Dockerfile
+		Context     string   // Docker build context
+		Tags        []string // Docker build tags
+		Args        []string // Docker build args
+		ArgsEnv     []string // Docker build args from env
+		Target      string   // Docker build target
+		Squash      bool     // Docker build squash
+		Pull        bool     // Docker build pull
+		CacheFrom   []string // Docker buildx cache-from
+		CacheTo     []string // Docker buildx cache-to
+		Compress    bool     // Docker build compress
+		Repo        string   // Docker build repository
+		LabelSchema []string // label-schema Label map
+		AutoLabel   bool     // auto-label bool
+		Labels      []string // Label map
+		Link        string   // Git repo link
+		NoCache     bool     // Docker build no-cache
+		NoPush      bool     // Set this flag if you only want to build the image, without pushing to a registry
+		Secret      string   // secret keypair
+		SecretEnvs  []string // Docker build secrets with env var as source
+		SecretFiles []string // Docker build secrets with file as source
+		AddHost     []string // Docker build add-host
+		Quiet       bool     // Docker build quiet
+		Platform    string   // Docker build platform
+		SSHAgentKey string   // Docker build ssh agent key
+		SSHKeyPath  string   // Docker build ssh key path
+		BuildxLoad  bool     // Docker buildx --load
+		TarPath     string   // Path to save the image tarball
 	}
 
 	// Plugin defines the Docker plugin parameters.
@@ -323,6 +325,18 @@ func (p Plugin) Exec() error {
 		}
 	}
 
+	if p.Build.TarPath != "" {
+		saveCmd := saveImageToTarball(p.Build)
+		if saveCmd != nil {
+			saveCmd.Stdout = os.Stdout
+			saveCmd.Stderr = os.Stderr
+			trace(saveCmd)
+			if err := saveCmd.Run(); err != nil {
+				fmt.Printf("Could not save image to tarball: %s\n", err)
+			}
+		}
+	}
+
 	// output the adaptive card
 	if p.Builder.Driver == defaultDriver {
 		if err := p.writeCard(); err != nil {
@@ -480,16 +494,27 @@ func commandBuildx(build Build, builder Builder, dryrun bool, metadataFile strin
 	for _, t := range build.Tags {
 		args = append(args, "-t", fmt.Sprintf("%s:%s", build.Repo, t))
 	}
-	if dryrun {
-		if build.BuildxLoad {
+	if build.NoPush {
+		if build.TarPath != "" || dryrun {
 			args = append(args, "--load")
 		}
 	} else {
-		args = append(args, "--push")
+		if dryrun {
+			if build.TarPath != "" {
+				args = append(args, "--load")
+			}
+		} else {
+			args = append(args, "--push")
+		}
 	}
 	args = append(args, build.Context)
 	if metadataFile != "" {
 		args = append(args, "--metadata-file", metadataFile)
+	}
+	if build.TarPath != "" {
+		if !strings.Contains(strings.Join(args, " "), "--load") {
+			args = append(args, "--load")
+		}
 	}
 	if build.Squash {
 		args = append(args, "--squash")
@@ -740,4 +765,18 @@ func writeSSHPrivateKey(key string) (path string, err error) {
 // tag so that it can be extracted and displayed in the logs.
 func trace(cmd *exec.Cmd) {
 	fmt.Fprintf(os.Stdout, "+ %s\n", strings.Join(cmd.Args, " "))
+}
+
+func saveImageToTarball(build Build) *exec.Cmd {
+	if build.TarPath == "" {
+		return nil
+	}
+
+	saveCmd := exec.Command(dockerExe, "save",
+		"-o", build.TarPath)
+	for _, t := range build.Tags {
+		saveCmd.Args = append(saveCmd.Args, fmt.Sprintf("%s:%s", build.Repo, t))
+	}
+
+	return saveCmd
 }
