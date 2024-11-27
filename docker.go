@@ -244,20 +244,20 @@ func (p Plugin) Exec() error {
 
 	configData, err := buildKitVersionFile.ReadFile("buildkit/version.json")
 	if err != nil {
-		fmt.Errorf("Failed to read embedded buildkit version.json: %v", err)
+		fmt.Printf("Failed to read embedded buildkit version.json: %v", err)
 		loadedBuildkitVersion = false
 	}
 
 	var config BuildKitConfig
 	if err := json.Unmarshal(configData, &config); err != nil {
-		fmt.Errorf("Failed to buildkit version.json: %v", err)
+		fmt.Printf("Failed to buildkit version.json: %v", err)
 		loadedBuildkitVersion = false
 	}
 
 	// Read the tarball from the embedded filesystem
 	data, err := buildkitTarball.ReadFile("buildkit/buildkit.tar")
 	if err != nil {
-		fmt.Errorf("Failed to load buildkit tarball: %v", err)
+		fmt.Printf("Failed to load buildkit tarball: %v", err)
 		loadedBuildkitTarball = false
 	}
 
@@ -266,7 +266,7 @@ func (p Plugin) Exec() error {
 	loadCmd.Run()
 	if loadedBuildkitTarball {
 		if err := loadCmd.Run(); err != nil {
-			fmt.Errorf("error while loading buildkit image: %s", err)
+			fmt.Printf("error while loading buildkit image: %s", err)
 			loadedBuildkitTarball = false
 		}
 	}
