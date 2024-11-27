@@ -254,7 +254,7 @@ func (p Plugin) Exec() error {
 	// Read the tarball from the embedded filesystem
 	data, err := buildkitTarball.ReadFile("buildkit/buildkit.tar")
 	if err != nil {
-		panic(err)
+		return fmt.Errorf("Failed to load buildkit tarball: %v", err)
 	}
 
 	loadCmd := commandLoad()
