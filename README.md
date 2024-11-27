@@ -12,6 +12,7 @@ Drone plugin uses Docker-in-Docker to build and publish Docker images to a conta
 
 ## Build
 
+buildkit/version.json is the source of truth for the buildkit version to be used for hosted. Please update this to use a newer buildkit version
 
 Run the release script for buildkit
 
