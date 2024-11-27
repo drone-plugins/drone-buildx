@@ -264,11 +264,12 @@ func (p Plugin) Exec() error {
 	loadCmd := commandLoad()
 	loadCmd.Stdin = bytes.NewReader(data)
 	loadCmd.Run()
-	if err := loadCmd.Run(); err != nil {
-		return fmt.Errorf("error while loading buildkit image: %s", err)
+	if loadedBuildkitTarball {
+		if err := loadCmd.Run(); err != nil {
+			fmt.Errorf("error while loading buildkit image: %s", err)
+			loadedBuildkitTarball = false
+		}
 	}
-	
-
 
 	if p.Builder.Driver != "" && p.Builder.Driver != defaultDriver {
 		var (
@@ -285,7 +286,7 @@ func (p Plugin) Exec() error {
 					p.Builder.DriverOpts[i] = fmt.Sprintf("image=%s", config.BuildkitVersion)
 				}
 			}
-		}	
+		}
 
 		shouldFallback := true
 		if len(p.Builder.DriverOptsNew) != 0 {
