@@ -239,22 +239,26 @@ func (p Plugin) Exec() error {
 		p.Builder.Driver = dockerContainerDriver
 	}
 
+	loadedBuildkitVersion := true
+	loadedBuildkitTarball := true
+
 	configData, err := buildKitVersionFile.ReadFile("buildkit/version.json")
 	if err != nil {
-		return fmt.Errorf("Failed to read embedded buildkit version.json: %v", err)
+		fmt.Errorf("Failed to read embedded buildkit version.json: %v", err)
+		loadedBuildkitVersion = false
 	}
 
 	var config BuildKitConfig
 	if err := json.Unmarshal(configData, &config); err != nil {
-		return fmt.Errorf("Failed to buildkit version.json: %v", err)
+		fmt.Errorf("Failed to buildkit version.json: %v", err)
+		loadedBuildkitVersion = false
 	}
-
-	fmt.Printf("Using BuildKit Version: %s\n", config.BuildkitVersion)
 
 	// Read the tarball from the embedded filesystem
 	data, err := buildkitTarball.ReadFile("buildkit/buildkit.tar")
 	if err != nil {
-		return fmt.Errorf("Failed to load buildkit tarball: %v", err)
+		fmt.Errorf("Failed to load buildkit tarball: %v", err)
+		loadedBuildkitTarball = false
 	}
 
 	loadCmd := commandLoad()
@@ -273,12 +277,15 @@ func (p Plugin) Exec() error {
 		)
 
 		// Replace the image in driver opts with the buildkit version
-		for i, opt := range p.Builder.DriverOpts {
-			if strings.HasPrefix(opt, "image=") {
-				// Replace the part after image= with config.BuildkitVersion
-				p.Builder.DriverOpts[i] = "image=" + config.BuildkitVersion
+		if loadedBuildkitTarball && loadedBuildkitVersion {
+			fmt.Printf("Using BuildKit Version: %s\n", config.BuildkitVersion)
+			for i, opt := range p.Builder.DriverOpts {
+				if strings.HasPrefix(opt, "image=") {
+					// Replace the part after image= with config.BuildkitVersion
+					p.Builder.DriverOpts[i] = "image=" + config.BuildkitVersion
+				}
 			}
-		}
+		}	
 
 		shouldFallback := true
 		if len(p.Builder.DriverOptsNew) != 0 {
