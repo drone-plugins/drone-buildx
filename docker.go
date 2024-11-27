@@ -282,7 +282,7 @@ func (p Plugin) Exec() error {
 			for i, opt := range p.Builder.DriverOpts {
 				if strings.HasPrefix(opt, "image=") {
 					// Replace the part after image= with config.BuildkitVersion
-					p.Builder.DriverOpts[i] = "image=" + config.BuildkitVersion
+					p.Builder.DriverOpts[i] = fmt.Sprintf("image=%s", config.BuildkitVersion)
 				}
 			}
 		}	
