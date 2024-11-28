@@ -305,6 +305,11 @@ func Run() {
 			EnvVar: "PLUGIN_BUILDER_NAME",
 		},
 		cli.StringFlag{
+			Name:   "builder-daemon-config",
+			Usage:  "Path to config file for Buildkit daemon",
+			EnvVar: "PLUGIN_BUILDER_CONFIG",
+		},
+		cli.StringFlag{
 			Name:   "builder-driver",
 			EnvVar: "PLUGIN_BUILDER_DRIVER",
 		},
@@ -428,6 +433,7 @@ func run(c *cli.Context) error {
 		},
 		Builder: Builder{
 			Name:          c.String("builder-name"),
+			DaemonConfig:  c.String("builder-daemon-config"),
 			Driver:        c.String("builder-driver"),
 			DriverOpts:    c.Generic("builder-driver-opts").(*CustomStringSliceFlag).GetValue(),
 			DriverOptsNew: c.Generic("builder-driver-opts-new").(*CustomStringSliceFlag).GetValue(),
