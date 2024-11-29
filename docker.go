@@ -35,6 +35,7 @@ type (
 
 	Builder struct {
 		Name          string   // Buildx builder name
+		DaemonConfig  string   // Buildx daemon config file path
 		Driver        string   // Buildx driver type
 		DriverOpts    []string // Buildx driver opts
 		DriverOptsNew []string // Buildx driver opts new
