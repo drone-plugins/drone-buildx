@@ -14,6 +14,7 @@ steps:
   - name: vet
     image: golang:1.22
     commands:
+      - sh buildkit/release.sh
       - go vet ./...
     environment:
 
