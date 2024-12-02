@@ -252,14 +252,14 @@ func (p Plugin) Exec() error {
 		}
 
 		if err := json.Unmarshal(configData, &config); err != nil {
-			fmt.Printf("Failed to buildkit version.json: %v", err)
+			fmt.Printf("Failed to read buildkit version.json: %v", err)
 			loadedBuildkitVersion = false
 		}
 
 		// Read the tarball from the embedded filesystem
 		data, err := buildkitTarball.ReadFile("buildkit/buildkit.tar")
 		if err != nil {
-			fmt.Printf("Failed to load buildkit tarball: %v", err)
+			fmt.Printf("Failed to load buildkit tarball: %v\n", err)
 			loadedBuildkitTarball = false
 		}
 
@@ -267,7 +267,7 @@ func (p Plugin) Exec() error {
 		loadCmd.Stdin = bytes.NewReader(data)
 		if loadedBuildkitTarball {
 			if err := loadCmd.Run(); err != nil {
-				fmt.Printf("error while loading buildkit image: %s", err)
+				fmt.Printf("error while loading buildkit image: %s\n", err)
 				loadedBuildkitTarball = false
 			}
 		}
@@ -282,20 +282,10 @@ func (p Plugin) Exec() error {
 			err error
 		)
 
-		// Replace the image in driver opts with the buildkit version
-		if p.Builder.UseLoadedBuildkit && loadedBuildkitTarball && loadedBuildkitVersion {
-			fmt.Printf("Using BuildKit Version: %s\n", config.BuildkitVersion)
-			for i, opt := range p.Builder.DriverOpts {
-				if strings.HasPrefix(opt, "image=") {
-					// Replace the part after image= with config.BuildkitVersion
-					p.Builder.DriverOpts[i] = fmt.Sprintf("image=%s", config.BuildkitVersion)
-				}
-			}
-		}
-
 		shouldFallback := true
 		if len(p.Builder.DriverOptsNew) != 0 {
 			createCmd := cmdSetupBuildx(p.Builder, p.Builder.DriverOptsNew)
+			fmt.Print("Printing cmdSetupBuildx: ", createCmd.String())
 			raw, err = createCmd.Output()
 			if err != nil {
 				fmt.Printf("Unable to setup buildx with new driver opts: %s\n", err)
@@ -315,7 +305,18 @@ func (p Plugin) Exec() error {
 			}
 		}
 		if shouldFallback {
+			// Replace the image in driver opts with the buildkit version
+			if p.Builder.UseLoadedBuildkit && loadedBuildkitTarball && loadedBuildkitVersion {
+				fmt.Printf("Using BuildKit Version: %s\n", config.BuildkitVersion)
+				for i, opt := range p.Builder.DriverOpts {
+					if strings.HasPrefix(opt, "image=") {
+						// Replace the part after image= with config.BuildkitVersion
+						p.Builder.DriverOpts[i] = fmt.Sprintf("image=%s", config.BuildkitVersion)
+					}
+				}
+			}
 			createCmd := cmdSetupBuildx(p.Builder, p.Builder.DriverOpts)
+			fmt.Print("Printing cmdSetupBuildx shouldFallback: ", createCmd.String())
 			raw, err = createCmd.Output()
 			if err != nil {
 				return fmt.Errorf("error while creating buildx builder: %s and err: %s", string(raw), err)
