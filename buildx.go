@@ -15,6 +15,9 @@ func cmdSetupBuildx(builder Builder, driverOpts []string) *exec.Cmd {
 	if builder.Name != "" {
 		args = append(args, "--name", builder.Name)
 	}
+	if builder.DaemonConfig != "" {
+		args = append(args, "--buildkitd-config", builder.DaemonConfig)
+	}
 	for _, opt := range driverOpts {
 		args = append(args, "--driver-opt", opt)
 	}
