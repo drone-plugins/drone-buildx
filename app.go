@@ -369,6 +369,11 @@ func Run() {
 			Usage:  "access token",
 			EnvVar: "ACCESS_TOKEN",
 		},
+		cli.BoolTFlag{
+			Name:   "use-loaded-buildkit",
+			Usage:  "Use preloaded buildkit image. Default is true.",
+			EnvVar: "PLUGIN_USE_LOADED_BUILDKIT",
+		},
 	}
 
 	if err := app.Run(os.Args); err != nil {
@@ -445,12 +450,13 @@ func run(c *cli.Context) error {
 			ArtifactRegistry: c.String("artifact.registry"),
 		},
 		Builder: Builder{
-			Name:          c.String("builder-name"),
-			DaemonConfig:  c.String("builder-daemon-config"),
-			Driver:        c.String("builder-driver"),
-			DriverOpts:    c.Generic("builder-driver-opts").(*CustomStringSliceFlag).GetValue(),
-			DriverOptsNew: c.Generic("builder-driver-opts-new").(*CustomStringSliceFlag).GetValue(),
-			RemoteConn:    c.String("builder-remote-conn"),
+			Name:              c.String("builder-name"),
+			DaemonConfig:      c.String("builder-daemon-config"),
+			Driver:            c.String("builder-driver"),
+			DriverOpts:        c.Generic("builder-driver-opts").(*CustomStringSliceFlag).GetValue(),
+			DriverOptsNew:     c.Generic("builder-driver-opts-new").(*CustomStringSliceFlag).GetValue(),
+			RemoteConn:        c.String("builder-remote-conn"),
+			UseLoadedBuildkit: c.BoolT("use-loaded-buildkit"),
 		},
 		BaseImageRegistry: c.String("docker.baseimageregistry"),
 		BaseImageUsername: c.String("docker.baseimageusername"),
