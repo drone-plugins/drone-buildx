@@ -24,6 +24,6 @@ tarball_url="https://storage.cloud.google.com/harness-ti/buildkit/${buildkit_ver
 # Download the tarball
 echo "Downloading Buildkit tarball from ${tarball_url}..."
 mkdir -p buildkit
-wget -O buildkit/buildkit.tar "${tarball_url}"
+curl -L -o buildkit/buildkit.tar "${tarball_url}"
 
 echo "Buildkit tarball downloaded to buildkit/buildkit.tar"
