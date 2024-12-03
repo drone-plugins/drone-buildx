@@ -279,13 +279,6 @@ func (p Plugin) Exec() error {
 		loadedBuildkitTarball = false
 	}
 
-	lsCmd := commandLs()
-
-	lsCmd.Stdout = os.Stdout
-	lsCmd.Stderr = os.Stderr
-	lsCmd.Run()
-
-
 	if p.Builder.Driver != "" && p.Builder.Driver != defaultDriver {
 		var (
 			raw []byte
@@ -295,7 +288,6 @@ func (p Plugin) Exec() error {
 		shouldFallback := true
 		if len(p.Builder.DriverOptsNew) != 0 {
 			createCmd := cmdSetupBuildx(p.Builder, p.Builder.DriverOptsNew)
-			fmt.Println("Printing cmdSetupBuildx: ", createCmd.String())
 			raw, err = createCmd.Output()
 			if err != nil {
 				fmt.Printf("Unable to setup buildx with new driver opts: %s\n", err)
@@ -326,7 +318,6 @@ func (p Plugin) Exec() error {
 				}
 			}
 			createCmd := cmdSetupBuildx(p.Builder, p.Builder.DriverOpts)
-			fmt.Println("Printing cmdSetupBuildx shouldFallback: ", createCmd.String())
 			raw, err = createCmd.Output()
 			if err != nil {
 				return fmt.Errorf("error while creating buildx builder: %s and err: %s", string(raw), err)
@@ -824,10 +815,6 @@ func commandRmi(tag string) *exec.Cmd {
 
 func commandLoad() *exec.Cmd {
 	return exec.Command(dockerExe, "image", "load")
-}
-
-func commandLs() *exec.Cmd {
-	return exec.Command(dockerExe, "image", "ls")
 }
 
 func writeSSHPrivateKey(key string) (path string, err error) {
