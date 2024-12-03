@@ -250,12 +250,12 @@ func (p Plugin) Exec() error {
 	if p.Builder.UseLoadedBuildkit {
 		configData, err := buildKitVersionFile.ReadFile("buildkit/version.json")
 		if err != nil {
-			fmt.Printf("Failed to read embedded buildkit version.json: %v", err)
+			fmt.Printf("Failed to read embedded buildkit version.json: %v\n", err)
 			loadedBuildkitVersion = false
 		}
 
 		if err := json.Unmarshal(configData, &config); err != nil {
-			fmt.Printf("Failed to read buildkit version.json: %v", err)
+			fmt.Printf("Failed to read buildkit version.json: %v\n", err)
 			loadedBuildkitVersion = false
 		}
 
@@ -279,6 +279,13 @@ func (p Plugin) Exec() error {
 		loadedBuildkitTarball = false
 	}
 
+	lsCmd := commandLs()
+
+	lsCmd.Stdout = os.Stdout
+	lsCmd.Stderr = os.Stderr
+	lsCmd.Run()
+
+
 	if p.Builder.Driver != "" && p.Builder.Driver != defaultDriver {
 		var (
 			raw []byte
@@ -288,7 +295,7 @@ func (p Plugin) Exec() error {
 		shouldFallback := true
 		if len(p.Builder.DriverOptsNew) != 0 {
 			createCmd := cmdSetupBuildx(p.Builder, p.Builder.DriverOptsNew)
-			fmt.Print("Printing cmdSetupBuildx: ", createCmd.String())
+			fmt.Println("Printing cmdSetupBuildx: ", createCmd.String())
 			raw, err = createCmd.Output()
 			if err != nil {
 				fmt.Printf("Unable to setup buildx with new driver opts: %s\n", err)
@@ -319,7 +326,7 @@ func (p Plugin) Exec() error {
 				}
 			}
 			createCmd := cmdSetupBuildx(p.Builder, p.Builder.DriverOpts)
-			fmt.Print("Printing cmdSetupBuildx shouldFallback: ", createCmd.String())
+			fmt.Println("Printing cmdSetupBuildx shouldFallback: ", createCmd.String())
 			raw, err = createCmd.Output()
 			if err != nil {
 				return fmt.Errorf("error while creating buildx builder: %s and err: %s", string(raw), err)
@@ -817,6 +824,10 @@ func commandRmi(tag string) *exec.Cmd {
 
 func commandLoad() *exec.Cmd {
 	return exec.Command(dockerExe, "image", "load")
+}
+
+func commandLs() *exec.Cmd {
+	return exec.Command(dockerExe, "image", "ls")
 }
 
 func writeSSHPrivateKey(key string) (path string, err error) {
