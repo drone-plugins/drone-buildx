@@ -10,19 +10,7 @@
 
 Drone plugin uses Docker-in-Docker to build and publish Docker images to a container registry. For the usage information and a listing of the available options please take a look at [the docs](http://plugins.drone.io/drone-plugins/drone-docker/).
 
-## Updating Buildkit Version
-
-If you want to update the buildkit version that is bundled with the plugin then update the version in the buildkit/version.json file and also run the following pipeline to upload the assets in the correct place: https://harness0.harness.io/ng/account/l7B_kbSEQD2wjrM7PShm5w/all/orgs/PROD/projects/CI/pipelines/Buildkit_Tarball_Uploader/pipeline-studio?storeType=INLINE
-
 ## Build
-
-buildkit/version.json is the source of truth for the buildkit version to be used for self hosted. Please update this to use a newer buildkit version
-
-Run the release script for buildkit. Give the argument according to the infra you are compiling for
-
-```console
-sh buildkit/release.sh linux/amd64
-```
 
 Build the binaries with the following commands:
 
