@@ -3,4 +3,3 @@ coverage.out
 vendor
 .vscode/
 Dockerfile
-buildkit/*.tar

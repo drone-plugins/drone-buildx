@@ -1,8 +1,6 @@
 package docker
 
 import (
-	"bytes"
-	"embed"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -36,13 +34,12 @@ type (
 	}
 
 	Builder struct {
-		Name              string   // Buildx builder name
-		DaemonConfig      string   // Buildx daemon config file path
-		Driver            string   // Buildx driver type
-		DriverOpts        []string // Buildx driver opts
-		DriverOptsNew     []string // Buildx driver opts new
-		RemoteConn        string   // Buildx remote connection endpoint
-		UseLoadedBuildkit bool     // Use loaded buildkit or no
+		Name          string   // Buildx builder name
+		DaemonConfig  string   // Buildx daemon config file path
+		Driver        string   // Buildx driver type
+		DriverOpts    []string // Buildx driver opts
+		DriverOptsNew []string // Buildx driver opts new
+		RemoteConn    string   // Buildx remote connection endpoint
 	}
 
 	// Login defines Docker login parameters.
@@ -132,17 +129,7 @@ type (
 	TagStruct struct {
 		Tag string `json:"Tag"`
 	}
-
-	BuildKitConfig struct {
-		BuildkitVersion string `json:"buildkit_version"`
-	}
 )
-
-//go:embed buildkit/buildkit.tar
-var buildkitTarball embed.FS
-
-//go:embed buildkit/version.json
-var buildKitVersionFile embed.FS
 
 // Exec executes the plugin step
 func (p Plugin) Exec() error {
@@ -151,6 +138,7 @@ func (p Plugin) Exec() error {
 	if !p.Daemon.Disabled {
 		p.startDaemon()
 	}
+
 	// poll the docker daemon until it is started. This ensures the daemon is
 	// ready to accept connections before we proceed.
 	for i := 0; ; i++ {
@@ -243,90 +231,33 @@ func (p Plugin) Exec() error {
 		p.Builder.Driver = dockerContainerDriver
 	}
 
-	loadedBuildkitVersion := true
-	loadedBuildkitTarball := true
-	var config BuildKitConfig
-
-	if p.Builder.UseLoadedBuildkit {
-		configData, err := buildKitVersionFile.ReadFile("buildkit/version.json")
-		if err != nil {
-			fmt.Printf("Failed to read embedded buildkit version.json: %v\n", err)
-			loadedBuildkitVersion = false
-		}
-
-		if err := json.Unmarshal(configData, &config); err != nil {
-			fmt.Printf("Failed to read buildkit version.json: %v\n", err)
-			loadedBuildkitVersion = false
-		}
-
-		// Read the tarball from the embedded filesystem
-		data, err := buildkitTarball.ReadFile("buildkit/buildkit.tar")
-		if err != nil {
-			fmt.Printf("Failed to load buildkit tarball: %v\n", err)
-			loadedBuildkitTarball = false
-		}
-
-		loadCmd := commandLoad()
-		loadCmd.Stdin = bytes.NewReader(data)
-		if loadedBuildkitTarball {
-			if err := loadCmd.Run(); err != nil {
-				fmt.Printf("error while loading buildkit image: %s\n", err)
-				loadedBuildkitTarball = false
-			}
-		}
-	} else {
-		loadedBuildkitVersion = false
-		loadedBuildkitTarball = false
-	}
-
 	if p.Builder.Driver != "" && p.Builder.Driver != defaultDriver {
 		var (
 			raw []byte
 			err error
 		)
-
 		shouldFallback := true
 		if len(p.Builder.DriverOptsNew) != 0 {
 			createCmd := cmdSetupBuildx(p.Builder, p.Builder.DriverOptsNew)
 			raw, err = createCmd.Output()
-			if err != nil {
-				fmt.Printf("Unable to setup buildx with new driver opts: %s\n", err)
-				// Mark that the fallback will be used
-				shouldFallback = true
+			if err == nil {
+				shouldFallback = false
 			} else {
-				p.Builder.Name = strings.TrimSuffix(string(raw), "\n")
-				// If builder creation is successful, inspect the builder
-				inspectCmd := cmdInspectBuildx(p.Builder.Name)
-				if err := inspectCmd.Run(); err != nil {
-					fmt.Printf("Error while inspecting buildx builder with new driver opts: %s\n", err)
-					// Mark that the fallback will be used
-					shouldFallback = true
-				} else {
-					shouldFallback = false
-				}
+				fmt.Printf("Unable to setup buildx with new driver opts: %s\n", err)
 			}
 		}
 		if shouldFallback {
-			// Replace the image in driver opts with the buildkit version
-			if p.Builder.UseLoadedBuildkit && loadedBuildkitTarball && loadedBuildkitVersion {
-				fmt.Printf("Using BuildKit Version: %s\n", config.BuildkitVersion)
-				for i, opt := range p.Builder.DriverOpts {
-					if strings.HasPrefix(opt, "image=") {
-						// Replace the part after image= with config.BuildkitVersion
-						p.Builder.DriverOpts[i] = fmt.Sprintf("image=%s", config.BuildkitVersion)
-					}
-				}
-			}
 			createCmd := cmdSetupBuildx(p.Builder, p.Builder.DriverOpts)
 			raw, err = createCmd.Output()
 			if err != nil {
 				return fmt.Errorf("error while creating buildx builder: %s and err: %s", string(raw), err)
 			}
-			p.Builder.Name = strings.TrimSuffix(string(raw), "\n")
-			inspectCmd := cmdInspectBuildx(p.Builder.Name)
-			if err := inspectCmd.Run(); err != nil {
-				return fmt.Errorf("error while bootstraping buildx builder: %s", err)
-			}
+		}
+		p.Builder.Name = strings.TrimSuffix(string(raw), "\n")
+
+		inspectCmd := cmdInspectBuildx(p.Builder.Name)
+		if err := inspectCmd.Run(); err != nil {
+			return fmt.Errorf("error while bootstraping buildx builder: %s", err)
 		}
 
 		removeCmd := cmdRemoveBuildx(p.Builder.Name)
@@ -339,7 +270,6 @@ func (p Plugin) Exec() error {
 	addProxyBuildArgs(&p.Build)
 
 	var cmds []*exec.Cmd
-
 	cmds = append(cmds, commandVersion()) // docker version
 	cmds = append(cmds, commandInfo())    // docker info
 
@@ -811,10 +741,6 @@ func isCommandRmi(args []string) bool {
 
 func commandRmi(tag string) *exec.Cmd {
 	return exec.Command(dockerExe, "rmi", tag)
-}
-
-func commandLoad() *exec.Cmd {
-	return exec.Command(dockerExe, "image", "load")
 }
 
 func writeSSHPrivateKey(key string) (path string, err error) {
