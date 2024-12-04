@@ -166,6 +166,11 @@ steps:
    commands:
      - ./release/linux/amd64/drone-docker --help
 
+ - name: buildkit-tarball
+   image: docker:27.3.1-dind
+   commands:
+     - sh buildkit/release.sh
+
  - name: publish
    image: plugins/docker:18
    settings:

@@ -1,10 +1,6 @@
 #!/bin/bash
 
-# Path to the JSON file
-json_file="buildkit/version.json"
-
-# Extract the image name using jq (ensure jq is installed)
-image_name=$(jq -r '.buildkit_version' "$json_file")
+image_name=$(grep '"buildkit_version"' buildkit/version.json | awk -F'"' '{print $4}')
 
 # Check if image name was extracted successfully
 if [ -z "$image_name" ]; then
