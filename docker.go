@@ -811,10 +811,6 @@ func commandLoad() *exec.Cmd {
 	return exec.Command(dockerExe, "image", "load")
 }
 
-func commandLs() *exec.Cmd {
-	return exec.Command(dockerExe, "image", "ls")
-}
-
 func writeSSHPrivateKey(key string) (path string, err error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
