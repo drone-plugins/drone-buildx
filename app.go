@@ -374,6 +374,12 @@ func Run() {
 			Usage:  "Use preloaded buildkit image. Default is true.",
 			EnvVar: "PLUGIN_USE_LOADED_BUILDKIT",
 		},
+		cli.StringFlag{
+			Name:   "buildkit-assets-dir",
+			Usage:  "direcotry where buildkit assets are stored",
+			Value:  "buildkit",
+			EnvVar: "PLUGIN_BUILDKIT_ASSETS_DIR",
+		},
 	}
 
 	if err := app.Run(os.Args); err != nil {
@@ -457,6 +463,7 @@ func run(c *cli.Context) error {
 			DriverOptsNew:     c.Generic("builder-driver-opts-new").(*CustomStringSliceFlag).GetValue(),
 			RemoteConn:        c.String("builder-remote-conn"),
 			UseLoadedBuildkit: c.BoolT("use-loaded-buildkit"),
+			AssestsDir:        c.String("buildkit-assets-dir"),
 		},
 		BaseImageRegistry: c.String("docker.baseimageregistry"),
 		BaseImageUsername: c.String("docker.baseimageusername"),

@@ -4,6 +4,7 @@ FROM mcr.microsoft.com/windows/servercore:ltsc2019 as download
 SHELL ["powershell", "-Command", "$ErrorActionPreference = 'Stop'; $ProgressPreference = 'SilentlyContinue';"]
 
 ENV DOCKER_VERSION 19.03.1
+ENV PLUGIN_BUILDKIT_ASSETS_DIR=C:\buildkit
 
 RUN Invoke-WebRequest 'http://constexpr.org/innoextract/files/innoextract-1.6-windows.zip' -OutFile 'innoextract.zip' -UseBasicParsing ; `
     Expand-Archive innoextract.zip -DestinationPath C:\ ; `
@@ -22,6 +23,12 @@ LABEL maintainer="Drone.IO Community <drone-dev@googlegroups.com>" `
   org.label-schema.name="Drone Docker" `
   org.label-schema.vendor="Drone.IO Community" `
   org.label-schema.schema-version="1.0"
+
+RUN mkdir C:\buildkit
+
+# Add buildkit.tar and version
+COPY buildkit/buildkit.tar C:/buildkit/buildkit.tar
+COPY buildkit/version.json C:/buildkit/version.json
 
 RUN mkdir C:\bin
 COPY --from=download /windows/system32/netapi32.dll /windows/system32/netapi32.dll

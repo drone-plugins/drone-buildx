@@ -2,7 +2,6 @@ package docker
 
 import (
 	"bytes"
-	"embed"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -43,6 +42,7 @@ type (
 		DriverOptsNew     []string // Buildx driver opts new
 		RemoteConn        string   // Buildx remote connection endpoint
 		UseLoadedBuildkit bool     // Use loaded buildkit or no
+		AssestsDir        string   // Assets directory
 	}
 
 	// Login defines Docker login parameters.
@@ -137,12 +137,6 @@ type (
 		BuildkitVersion string `json:"buildkit_version"`
 	}
 )
-
-//go:embed buildkit/buildkit.tar
-var buildkitTarball embed.FS
-
-//go:embed buildkit/version.json
-var buildKitVersionFile embed.FS
 
 // Exec executes the plugin step
 func (p Plugin) Exec() error {
@@ -248,29 +242,29 @@ func (p Plugin) Exec() error {
 	var config BuildKitConfig
 
 	if p.Builder.UseLoadedBuildkit {
-		configData, err := buildKitVersionFile.ReadFile("buildkit/version.json")
+		// Build paths for the version.json and buildkit.tar
+		versionFilePath := filepath.Join(p.Builder.AssestsDir, "version.json")
+		tarballFilePath := filepath.Join(p.Builder.AssestsDir, "buildkit.tar")
+
+		// Read the version.json file from the filesystem
+		configData, err := os.ReadFile(versionFilePath)
 		if err != nil {
-			fmt.Printf("Failed to read embedded buildkit version.json: %v\n", err)
+			loadedBuildkitVersion = false
+		} else if err := json.Unmarshal(configData, &config); err != nil {
 			loadedBuildkitVersion = false
 		}
 
-		if err := json.Unmarshal(configData, &config); err != nil {
-			fmt.Printf("Failed to read buildkit version.json: %v\n", err)
-			loadedBuildkitVersion = false
-		}
-
-		// Read the tarball from the embedded filesystem
-		data, err := buildkitTarball.ReadFile("buildkit/buildkit.tar")
+		// Read the tarball file from the filesystem
+		data, err := os.ReadFile(tarballFilePath)
 		if err != nil {
-			fmt.Printf("Failed to load buildkit tarball: %v\n", err)
 			loadedBuildkitTarball = false
-		}
+		} else {
+			loadCmd := commandLoad()
+			loadCmd.Stdin = bytes.NewReader(data)
 
-		loadCmd := commandLoad()
-		loadCmd.Stdin = bytes.NewReader(data)
-		if loadedBuildkitTarball {
+			// Attempt to load the tarball
 			if err := loadCmd.Run(); err != nil {
-				fmt.Printf("error while loading buildkit image: %s\n", err)
+				fmt.Printf("Error while loading buildkit image: %s\n", err)
 				loadedBuildkitTarball = false
 			}
 		}
@@ -815,6 +809,10 @@ func commandRmi(tag string) *exec.Cmd {
 
 func commandLoad() *exec.Cmd {
 	return exec.Command(dockerExe, "image", "load")
+}
+
+func commandLs() *exec.Cmd {
+	return exec.Command(dockerExe, "image", "ls")
 }
 
 func writeSSHPrivateKey(key string) (path string, err error) {
