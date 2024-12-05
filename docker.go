@@ -43,6 +43,7 @@ type (
 		RemoteConn        string   // Buildx remote connection endpoint
 		UseLoadedBuildkit bool     // Use loaded buildkit or no
 		AssestsDir        string   // Assets directory
+		BuildkitVersion   string   // Buildkit version
 	}
 
 	// Login defines Docker login parameters.
@@ -301,15 +302,16 @@ func (p Plugin) Exec() error {
 			}
 		}
 		if shouldFallback {
-			// Replace the image in driver opts with the buildkit version
-			if p.Builder.UseLoadedBuildkit && loadedBuildkitTarball && loadedBuildkitVersion {
-				fmt.Printf("Using BuildKit Version: %s\n", config.BuildkitVersion)
-				for i, opt := range p.Builder.DriverOpts {
-					if strings.HasPrefix(opt, "image=") {
-						// Replace the part after image= with config.BuildkitVersion
-						p.Builder.DriverOpts[i] = fmt.Sprintf("image=%s", config.BuildkitVersion)
-					}
+			// Main code block
+			if (p.Builder.UseLoadedBuildkit && loadedBuildkitTarball && loadedBuildkitVersion) || p.Builder.BuildkitVersion != "" {
+				var version string
+				if p.Builder.UseLoadedBuildkit && loadedBuildkitTarball && loadedBuildkitVersion {
+					version = config.BuildkitVersion
+				} else {
+					version = p.Builder.BuildkitVersion
 				}
+				fmt.Printf("Using BuildKit Version: %s\n", version)
+				updateImageVersion(&p.Builder.DriverOpts, version)
 			}
 			createCmd := cmdSetupBuildx(p.Builder, p.Builder.DriverOpts)
 			raw, err = createCmd.Output()
@@ -832,4 +834,13 @@ func writeSSHPrivateKey(key string) (path string, err error) {
 // tag so that it can be extracted and displayed in the logs.
 func trace(cmd *exec.Cmd) {
 	fmt.Fprintf(os.Stdout, "+ %s\n", strings.Join(cmd.Args, " "))
+}
+
+// Helper function to update image version in driver options
+func updateImageVersion(driverOpts *[]string, version string) {
+	for i, opt := range *driverOpts {
+		if strings.HasPrefix(opt, "image=") {
+			(*driverOpts)[i] = fmt.Sprintf("image=%s", version)
+		}
+	}
 }

@@ -376,9 +376,14 @@ func Run() {
 		},
 		cli.StringFlag{
 			Name:   "buildkit-assets-dir",
-			Usage:  "direcotry where buildkit assets are stored",
+			Usage:  "directory where buildkit assets are stored",
 			Value:  "buildkit",
 			EnvVar: "PLUGIN_BUILDKIT_ASSETS_DIR",
+		},
+		cli.StringFlag{
+			Name:   "buildkit-version",
+			Usage:  "Buildkit version to use",
+			EnvVar: "PLUGIN_BUILDKIT_VERSION",
 		},
 	}
 
@@ -464,6 +469,7 @@ func run(c *cli.Context) error {
 			RemoteConn:        c.String("builder-remote-conn"),
 			UseLoadedBuildkit: c.BoolT("use-loaded-buildkit"),
 			AssestsDir:        c.String("buildkit-assets-dir"),
+			BuildkitVersion:   c.String("buildkit-version"),
 		},
 		BaseImageRegistry: c.String("docker.baseimageregistry"),
 		BaseImageUsername: c.String("docker.baseimageusername"),
