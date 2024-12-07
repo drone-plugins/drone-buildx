@@ -2,7 +2,6 @@ package docker
 
 import (
 	"bytes"
-	"embed"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -43,6 +42,8 @@ type (
 		DriverOptsNew     []string // Buildx driver opts new
 		RemoteConn        string   // Buildx remote connection endpoint
 		UseLoadedBuildkit bool     // Use loaded buildkit or no
+		AssestsDir        string   // Assets directory
+		BuildkitVersion   string   // Buildkit version
 	}
 
 	// Login defines Docker login parameters.
@@ -137,12 +138,6 @@ type (
 		BuildkitVersion string `json:"buildkit_version"`
 	}
 )
-
-//go:embed buildkit/buildkit.tar
-var buildkitTarball embed.FS
-
-//go:embed buildkit/version.json
-var buildKitVersionFile embed.FS
 
 // Exec executes the plugin step
 func (p Plugin) Exec() error {
@@ -248,29 +243,29 @@ func (p Plugin) Exec() error {
 	var config BuildKitConfig
 
 	if p.Builder.UseLoadedBuildkit {
-		configData, err := buildKitVersionFile.ReadFile("buildkit/version.json")
+		// Build paths for the version.json and buildkit.tar
+		versionFilePath := filepath.Join(p.Builder.AssestsDir, "version.json")
+		tarballFilePath := filepath.Join(p.Builder.AssestsDir, "buildkit.tar")
+
+		// Read the version.json file from the filesystem
+		configData, err := os.ReadFile(versionFilePath)
 		if err != nil {
-			fmt.Printf("Failed to read embedded buildkit version.json: %v\n", err)
+			loadedBuildkitVersion = false
+		} else if err := json.Unmarshal(configData, &config); err != nil {
 			loadedBuildkitVersion = false
 		}
 
-		if err := json.Unmarshal(configData, &config); err != nil {
-			fmt.Printf("Failed to read buildkit version.json: %v\n", err)
-			loadedBuildkitVersion = false
-		}
-
-		// Read the tarball from the embedded filesystem
-		data, err := buildkitTarball.ReadFile("buildkit/buildkit.tar")
+		// Read the tarball file from the filesystem
+		data, err := os.ReadFile(tarballFilePath)
 		if err != nil {
-			fmt.Printf("Failed to load buildkit tarball: %v\n", err)
 			loadedBuildkitTarball = false
-		}
+		} else {
+			loadCmd := commandLoad()
+			loadCmd.Stdin = bytes.NewReader(data)
 
-		loadCmd := commandLoad()
-		loadCmd.Stdin = bytes.NewReader(data)
-		if loadedBuildkitTarball {
+			// Attempt to load the tarball
 			if err := loadCmd.Run(); err != nil {
-				fmt.Printf("error while loading buildkit image: %s\n", err)
+				fmt.Printf("Error while loading buildkit image: %s\n", err)
 				loadedBuildkitTarball = false
 			}
 		}
@@ -307,15 +302,16 @@ func (p Plugin) Exec() error {
 			}
 		}
 		if shouldFallback {
-			// Replace the image in driver opts with the buildkit version
-			if p.Builder.UseLoadedBuildkit && loadedBuildkitTarball && loadedBuildkitVersion {
-				fmt.Printf("Using BuildKit Version: %s\n", config.BuildkitVersion)
-				for i, opt := range p.Builder.DriverOpts {
-					if strings.HasPrefix(opt, "image=") {
-						// Replace the part after image= with config.BuildkitVersion
-						p.Builder.DriverOpts[i] = fmt.Sprintf("image=%s", config.BuildkitVersion)
-					}
+			// Main code block
+			if (p.Builder.UseLoadedBuildkit && loadedBuildkitTarball && loadedBuildkitVersion) || p.Builder.BuildkitVersion != "" {
+				var version string
+				if p.Builder.UseLoadedBuildkit && loadedBuildkitTarball && loadedBuildkitVersion {
+					version = config.BuildkitVersion
+				} else {
+					version = p.Builder.BuildkitVersion
 				}
+				fmt.Printf("Using BuildKit Version: %s\n", version)
+				updateImageVersion(&p.Builder.DriverOpts, version)
 			}
 			createCmd := cmdSetupBuildx(p.Builder, p.Builder.DriverOpts)
 			raw, err = createCmd.Output()
@@ -838,4 +834,13 @@ func writeSSHPrivateKey(key string) (path string, err error) {
 // tag so that it can be extracted and displayed in the logs.
 func trace(cmd *exec.Cmd) {
 	fmt.Fprintf(os.Stdout, "+ %s\n", strings.Join(cmd.Args, " "))
+}
+
+// Helper function to update image version in driver options
+func updateImageVersion(driverOpts *[]string, version string) {
+	for i, opt := range *driverOpts {
+		if strings.HasPrefix(opt, "image=") {
+			(*driverOpts)[i] = fmt.Sprintf("image=%s", version)
+		}
+	}
 }

@@ -14,7 +14,6 @@ steps:
   - name: vet
     image: golang:1.22
     commands:
-      - sh buildkit/release.sh linux/amd64
       - go vet ./...
     environment:
 
@@ -25,7 +24,6 @@ steps:
   - name: test
     image: golang:1.22
     commands:
-      - sh buildkit/release.sh linux/amd64
       - go test -cover ./...
     environment:
 
@@ -61,7 +59,6 @@ steps:
    environment:
      CGO_ENABLED: 0
    commands:
-     - sh buildkit/release.sh linux/amd64
      - go build -o release/windows/amd64/drone-docker.exe ./cmd/drone-docker
  - name: build docker plugin
    image: plugins/docker@sha256:f0233d950ae87ee6cb5500b2d5497fe02aa338201c0bdce2619f443fd174cfa4
@@ -105,7 +102,6 @@ steps:
    environment:
      CGO_ENABLED: 0
    commands:
-     - sh buildkit/release.sh linux/amd64
      - go build -o release/windows/amd64/drone-docker.exe ./cmd/drone-docker
  - name: build docker plugin
    image: plugins/docker
@@ -147,7 +143,6 @@ steps:
  - name: build-push
    image: golang:1.22
    commands:
-     - sh buildkit/release.sh linux/amd64
      - 'go build -v -ldflags "-X main.version=${DRONE_COMMIT_SHA:0:8}" -a -tags netgo -o release/linux/amd64/drone-docker ./cmd/drone-docker'
    environment:
      CGO_ENABLED: 0
@@ -159,7 +154,6 @@ steps:
  - name: build-tag
    image: golang:1.22
    commands:
-     - sh buildkit/release.sh linux/amd64
      - 'go build -v -ldflags "-X main.version=${DRONE_TAG##v}" -a -tags netgo -o release/linux/amd64/drone-docker ./cmd/drone-docker'
    environment:
      CGO_ENABLED: 0
@@ -170,8 +164,12 @@ steps:
  - name: executable
    image: golang:1.22
    commands:
-     - sh buildkit/release.sh linux/amd64
      - ./release/linux/amd64/drone-docker --help
+
+ - name: buildkit-tarball
+   image: docker:27.3.1-dind
+   commands:
+     - sh buildkit/release.sh
 
  - name: publish
    image: plugins/docker:18
@@ -215,7 +213,6 @@ steps:
  - name: build-push
    image: golang:1.22
    commands:
-     - sh buildkit/release.sh linux/arm64
      - 'go build -v -ldflags "-X main.version=${DRONE_COMMIT_SHA:0:8}" -a -tags netgo -o release/linux/arm64/drone-docker ./cmd/drone-docker'
    environment:
      CGO_ENABLED: 0
@@ -227,7 +224,6 @@ steps:
  - name: build-tag
    image: golang:1.22
    commands:
-     - sh buildkit/release.sh linux/arm64
      - 'go build -v -ldflags "-X main.version=${DRONE_TAG##v}" -a -tags netgo -o release/linux/arm64/drone-docker ./cmd/drone-docker'
    environment:
      CGO_ENABLED: 0
@@ -238,8 +234,12 @@ steps:
  - name: executable
    image: golang:1.22
    commands:
-     - sh buildkit/release.sh linux/arm64
      - ./release/linux/arm64/drone-docker --help
+
+ - name: buildkit-tarball
+   image: docker:27.3.1-dind
+   commands:
+     - sh buildkit/release.sh
 
  - name: publish
    image: plugins/docker:18
@@ -318,7 +318,6 @@ steps:
  - name: build-push
    image: golang:1.22
    commands:
-     - sh buildkit/release.sh linux/amd64
      - 'go build -v -ldflags "-X main.version=${DRONE_COMMIT_SHA:0:8}" -a -tags netgo -o release/linux/amd64/drone-heroku ./cmd/drone-heroku'
    environment:
      CGO_ENABLED: 0
@@ -329,13 +328,17 @@ steps:
  - name: build-tag
    image: golang:1.22
    commands:
-     - sh buildkit/release.sh linux/amd64
      - 'go build -v -ldflags "-X main.version=${DRONE_TAG##v}" -a -tags netgo -o release/linux/amd64/drone-heroku ./cmd/drone-heroku'
    environment:
      CGO_ENABLED: 0
    when:
      event:
        - tag
+
+ - name: buildkit-tarball
+   image: docker:27.3.1-dind
+   commands:
+     - sh buildkit/release.sh
 
  - name: publish
    image: plugins/docker:18
@@ -379,7 +382,6 @@ steps:
  - name: build-push
    image: golang:1.22
    commands:
-     - sh buildkit/release.sh linux/arm64
      - 'go build -v -ldflags "-X main.version=${DRONE_COMMIT_SHA:0:8}" -a -tags netgo -o release/linux/arm64/drone-heroku ./cmd/drone-heroku'
    environment:
      CGO_ENABLED: 0
@@ -390,13 +392,18 @@ steps:
  - name: build-tag
    image: golang:1.22
    commands:
-     - sh buildkit/release.sh linux/arm64
      - 'go build -v -ldflags "-X main.version=${DRONE_TAG##v}" -a -tags netgo -o release/linux/arm64/drone-heroku ./cmd/drone-heroku'
    environment:
      CGO_ENABLED: 0
    when:
      event:
        - tag
+
+ - name: buildkit-tarball
+   image: docker:27.3.1-dind
+   commands:
+     - sh buildkit/release.sh
+  
  - name: publish
    image: plugins/docker:18
    settings:
@@ -470,13 +477,11 @@ steps:
     pull: always
     image: golang:1.22
     commands:
-      - sh buildkit/release.sh linux/amd64
       - GOOS=linux   GOARCH=amd64   go build -ldflags "-s -w" -a -tags netgo -o release/drone-buildx-linux-amd64 ./cmd/drone-docker
-      - GOOS=darwin  GOARCH=amd64   go build -ldflags "-s -w" -a -tags netgo -o release/drone-buildx-darwin-amd64 ./cmd/drone-docker
-      - GOOS=windows GOARCH=amd64   go build -ldflags "-s -w" -a -tags netgo -o release/drone-buildx-windows-amd64 ./cmd/drone-docker
-      - sh buildkit/release.sh linux/arm64
       - GOOS=linux   GOARCH=arm64   go build -ldflags "-s -w" -a -tags netgo -o release/drone-buildx-linux-arm64 ./cmd/drone-docker
+      - GOOS=darwin  GOARCH=amd64   go build -ldflags "-s -w" -a -tags netgo -o release/drone-buildx-darwin-amd64 ./cmd/drone-docker
       - GOOS=darwin  GOARCH=arm64   go build -ldflags "-s -w" -a -tags netgo -o release/drone-buildx-darwin-arm64 ./cmd/drone-docker
+      - GOOS=windows GOARCH=amd64   go build -ldflags "-s -w" -a -tags netgo -o release/drone-buildx-windows-amd64 ./cmd/drone-docker
 
     environment:
       CGO_ENABLED: 0

@@ -1,29 +1,32 @@
 #!/bin/bash
 
-# Usage: ./release.sh <platform>
-# Example: ./release.sh linux/amd64
+image_name=$(grep '"buildkit_version"' buildkit/version.json | awk -F'"' '{print $4}')
 
-set -e
+# Check if image name was extracted successfully
+if [ -z "$image_name" ]; then
+  echo "Error: Unable to extract image name from JSON file."
+  exit 1
+fi
 
-# Default platform
-platform="${1:-linux/amd64}"
+# Check for an optional platform override
+platform_override=${1:-}
+if [ -n "$platform_override" ]; then
+  echo "Using platform override: $platform_override"
+else
+  echo "No platform override provided. Using default platform."
+fi
 
-# Extract the full buildkit version (e.g., "harness/buildkit:1.0.6") without jq or grep -P
-full_buildkit_version=$(grep '"buildkit_version"' buildkit/version.json | awk -F'"' '{print $4}')
+# Pull the Docker image with optional platform specification
+echo "Pulling Docker image: $image_name"
+if [ -n "$platform_override" ]; then
+  docker pull --platform "$platform_override" "$image_name"
+else
+  docker pull "$image_name"
+fi
 
-# Extract only the version number (e.g., "1.0.6")
-buildkit_version=${full_buildkit_version##*:}
+# Save the Docker image to a tarball
+tar_file="buildkit/buildkit.tar"
+echo "Saving Docker image to tarball: $tar_file"
+docker save "$image_name" -o "$tar_file"
 
-# Parse platform components
-os=${platform%%/*}
-arch=${platform##*/}
-
-# Construct GCS tarball URL
-tarball_url="https://storage.cloud.google.com/harness-ti/buildkit/${buildkit_version}/harness-buildkit-${buildkit_version}-${os}-${arch}.tar"
-
-# Download the tarball
-echo "Downloading Buildkit tarball from ${tarball_url}..."
-mkdir -p buildkit
-curl -L -o buildkit/buildkit.tar "${tarball_url}"
-
-echo "Buildkit tarball downloaded to buildkit/buildkit.tar"
+echo "Done. Docker image saved to $tar_file"
