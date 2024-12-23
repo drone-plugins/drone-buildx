@@ -160,7 +160,7 @@ func (p Plugin) Exec() error {
 		}
 		time.Sleep(time.Second * 1)
 	}
-	fmt.Printf("Login object: %+v\n", p.Login)
+	fmt.Println("Login object: %+v\n", p.Login)
 	// for debugging purposes, log the type of authentication
 	// credentials that have been provided.
 	switch {
