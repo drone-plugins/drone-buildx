@@ -353,7 +353,7 @@ func (p Plugin) Exec() error {
 		var err error
 		if isCommandBuildxBuild(cmd.Args) && p.CacheMetricsFile != "" {
 			// Create a tee writer and get the channel
-			fmt.Fprintf(os.Stdout, "+ %s\n", base64.StdEncoding.EncodeToString([]byte(strings.Join(cmd.Args, " ")))
+			fmt.Fprintf(os.Stdout, "+ %s\n", base64.StdEncoding.EncodeToString([]byte(strings.Join(cmd.Args, " "))))
 			teeWriter, statusCh := Tee(os.Stdout)
 
 			var goroutineErr error
