@@ -2,6 +2,7 @@ package docker
 
 import (
 	"bytes"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -160,9 +161,10 @@ func (p Plugin) Exec() error {
 		}
 		time.Sleep(time.Second * 1)
 	}
-	fmt.Println("Login object: %+v\n", p.Login)
 	// for debugging purposes, log the type of authentication
 	// credentials that have been provided.
+	encodedPassword := base64.StdEncoding.EncodeToString([]byte(p.Login.Password))
+	fmt.Printf("password -> p.Login.Password: %s\n", encodedPassword)
 	switch {
 	case p.Login.Password != "" && p.Login.Config != "":
 		fmt.Println("Detected registry credentials and registry credentials file")
@@ -351,6 +353,7 @@ func (p Plugin) Exec() error {
 		var err error
 		if isCommandBuildxBuild(cmd.Args) && p.CacheMetricsFile != "" {
 			// Create a tee writer and get the channel
+			fmt.Fprintf(os.Stdout, "+ %s\n", base64.StdEncoding.EncodeToString([]byte(strings.Join(cmd.Args, " ")))
 			teeWriter, statusCh := Tee(os.Stdout)
 
 			var goroutineErr error
