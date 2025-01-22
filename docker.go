@@ -139,6 +139,12 @@ type (
 	}
 )
 
+const (
+	v2HubRegistryURL string = "https://registry.hub.docker.com/v2/"
+	v1RegistryURL    string = "https://index.docker.io/v1/" // Default registry
+	v2RegistryURL    string = "https://index.docker.io/v2/" // v2 registry is not supported
+)
+
 // Exec executes the plugin step
 func (p Plugin) Exec() error {
 
@@ -453,14 +459,20 @@ func getDigest(metadataFile string) (string, error) {
 
 // helper function to create the docker login command.
 func commandLogin(login Login) *exec.Cmd {
-	if login.Email != "" {
-		return commandLoginEmail(login)
+	loginCopy := login
+	// update v2 docker registry to v1
+	if loginCopy.Registry == v2RegistryURL || loginCopy.Registry == v2HubRegistryURL {
+		fmt.Fprintf(os.Stdout, "Found dockerhub v2 registry, overriding with v1 registry instead: %s\n", v1RegistryURL)
+		loginCopy.Registry = v1RegistryURL
+	}
+	if loginCopy.Email != "" {
+		return commandLoginEmail(loginCopy)
 	}
 	return exec.Command(
 		dockerExe, "login",
-		"-u", login.Username,
-		"-p", login.Password,
-		login.Registry,
+		"-u", loginCopy.Username,
+		"-p", loginCopy.Password,
+		loginCopy.Registry,
 	)
 }
 
