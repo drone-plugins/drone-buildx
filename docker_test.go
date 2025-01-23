@@ -220,6 +220,89 @@ func TestCommandBuildx(t *testing.T) {
 	}
 }
 
+func TestSanitizeCacheCommand(t *testing.T) {
+	tests := []struct {
+		name              string
+		build             Build
+		expectedCacheFrom []string
+		expectedCacheTo   []string
+	}{
+		{
+			name: "Replace AWS placeholders in CacheFrom and CacheTo",
+			build: Build{
+				CacheFrom:                    []string{"type=s3,access_key_id=harness_placeholder_aws_creds,secret_access_key=harness_placeholder_aws_creds"},
+				CacheTo:                      []string{"type=s3,access_key_id=harness_placeholder_aws_creds,secret_access_key=harness_placeholder_aws_creds"},
+				HarnessSelfHostedS3AccessKey: "actual_access_key",
+				HarnessSelfHostedS3SecretKey: "actual_secret_key",
+			},
+			expectedCacheFrom: []string{"type=s3,access_key_id=actual_access_key,secret_access_key=actual_secret_key"},
+			expectedCacheTo:   []string{"type=s3,access_key_id=actual_access_key,secret_access_key=actual_secret_key"},
+		},
+		{
+			name: "Replace GCP placeholder in CacheFrom",
+			build: Build{
+				CacheFrom:                   []string{"type=gcs,gcp_json_key=harness_placeholder_gcp_creds"},
+				CacheTo:                     []string{},
+				HarnessSelfHostedGcpJsonKey: "actual_gcp_key",
+			},
+			expectedCacheFrom: []string{"type=gcs,gcp_json_key=actual_gcp_key"},
+			expectedCacheTo:   []string{},
+		},
+		{
+			name: "Remove GCP placeholder when key is empty",
+			build: Build{
+				CacheFrom:                   []string{"type=gcs,gcp_json_key=harness_placeholder_gcp_creds"},
+				CacheTo:                     []string{"type=gcs,bucket=test,gcp_json_key=harness_placeholder_gcp_creds,prefix=dlc"},
+				HarnessSelfHostedGcpJsonKey: "",
+			},
+			expectedCacheFrom: []string{"type=gcs"},
+			expectedCacheTo:   []string{"type=gcs,bucket=test,prefix=dlc"},
+		},
+		{
+			name: "Multiple placeholders in CacheFrom",
+			build: Build{
+				CacheFrom:                    []string{"type=gcs,gcp_json_key=harness_placeholder_gcp_creds,access_key_id=harness_placeholder_aws_creds,secret_access_key=harness_placeholder_aws_creds"},
+				CacheTo:                      []string{},
+				HarnessSelfHostedS3AccessKey: "actual_access_key",
+				HarnessSelfHostedS3SecretKey: "actual_secret_key",
+				HarnessSelfHostedGcpJsonKey:  "actual_gcp_key",
+			},
+			expectedCacheFrom: []string{"type=gcs,gcp_json_key=actual_gcp_key,access_key_id=actual_access_key,secret_access_key=actual_secret_key"},
+			expectedCacheTo:   []string{},
+		},
+		{
+			name: "No placeholders in CacheFrom and CacheTo",
+			build: Build{
+				CacheFrom: []string{"type=s3,bucket=test"},
+				CacheTo:   []string{"type=gcs,bucket=test"},
+			},
+			expectedCacheFrom: []string{"type=s3,bucket=test"},
+			expectedCacheTo:   []string{"type=gcs,bucket=test"},
+		},
+		{
+			name: "Empty CacheFrom and CacheTo",
+			build: Build{
+				CacheFrom: []string{},
+				CacheTo:   []string{},
+			},
+			expectedCacheFrom: []string{},
+			expectedCacheTo:   []string{},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			sanitizeCacheCommand(&tt.build)
+			if !reflect.DeepEqual(tt.build.CacheFrom, tt.expectedCacheFrom) {
+				t.Errorf("CacheFrom = %v, want %v", tt.build.CacheFrom, tt.expectedCacheFrom)
+			}
+			if !reflect.DeepEqual(tt.build.CacheTo, tt.expectedCacheTo) {
+				t.Errorf("CacheTo = %v, want %v", tt.build.CacheTo, tt.expectedCacheTo)
+			}
+		})
+	}
+}
+
 func TestGetDigest(t *testing.T) {
 
 	tcs := []struct {
