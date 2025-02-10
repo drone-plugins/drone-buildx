@@ -387,7 +387,7 @@ func Run() {
 		},
 		cli.StringFlag{
 			Name:   "buildkit-tls-handshake-timeout",
-			Usage:  "Buildkit TLS handshake timeout override. Default value is 5s",
+			Usage:  "Buildkit TLS handshake timeout override. Default value is 10s",
 			EnvVar: "PLUGIN_BUILDKIT_TLS_HANDSHAKE_TIMEOUT",
 		},
 		cli.StringFlag{
