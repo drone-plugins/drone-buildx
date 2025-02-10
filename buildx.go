@@ -1,7 +1,9 @@
 package docker
 
 import (
+	"fmt"
 	"os/exec"
+	"strings"
 )
 
 const (
@@ -24,6 +26,18 @@ func cmdSetupBuildx(builder Builder, driverOpts []string) *exec.Cmd {
 	if builder.RemoteConn != "" && builder.Driver == remoteDriver {
 		args = append(args, builder.RemoteConn)
 	}
+	// Collect buildkitd flags
+	var buildkitdFlags []string
+	if builder.BuildkitTLSHandshakeTimeout != "" {
+		buildkitdFlags = append(buildkitdFlags, fmt.Sprintf("--tls-handshake-timeout=%s", builder.BuildkitTLSHandshakeTimeout))
+	}
+	if builder.BuildkitResponseHeaderTimeout != "" {
+		buildkitdFlags = append(buildkitdFlags, fmt.Sprintf("--response-header-timeout=%s", builder.BuildkitResponseHeaderTimeout))
+	}
+	if len(buildkitdFlags) > 0 {
+		args = append(args, "--buildkitd-flags", strings.Join(buildkitdFlags, " "))
+	}
+	fmt.Println("ANURAG builder setup args", args)
 	return exec.Command(dockerExe, args...)
 }
 
