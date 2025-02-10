@@ -37,7 +37,6 @@ func cmdSetupBuildx(builder Builder, driverOpts []string) *exec.Cmd {
 	if len(buildkitdFlags) > 0 {
 		args = append(args, "--buildkitd-flags", strings.Join(buildkitdFlags, " "))
 	}
-	fmt.Println("ANURAG builder setup args", args)
 	return exec.Command(dockerExe, args...)
 }
 
