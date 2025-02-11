@@ -35,15 +35,17 @@ type (
 	}
 
 	Builder struct {
-		Name              string   // Buildx builder name
-		DaemonConfig      string   // Buildx daemon config file path
-		Driver            string   // Buildx driver type
-		DriverOpts        []string // Buildx driver opts
-		DriverOptsNew     []string // Buildx driver opts new
-		RemoteConn        string   // Buildx remote connection endpoint
-		UseLoadedBuildkit bool     // Use loaded buildkit or no
-		AssestsDir        string   // Assets directory
-		BuildkitVersion   string   // Buildkit version
+		Name                          string   // Buildx builder name
+		DaemonConfig                  string   // Buildx daemon config file path
+		Driver                        string   // Buildx driver type
+		DriverOpts                    []string // Buildx driver opts
+		DriverOptsNew                 []string // Buildx driver opts new
+		RemoteConn                    string   // Buildx remote connection endpoint
+		UseLoadedBuildkit             bool     // Use loaded buildkit or no
+		AssestsDir                    string   // Assets directory
+		BuildkitVersion               string   // Buildkit version
+		BuildkitTLSHandshakeTimeout   string   // Buildkit TLS handshake timeout
+		BuildkitResponseHeaderTimeout string   // Buildkit response header timeout
 	}
 
 	// Login defines Docker login parameters.
@@ -288,6 +290,10 @@ func (p Plugin) Exec() error {
 
 		shouldFallback := true
 		if len(p.Builder.DriverOptsNew) != 0 {
+			if p.Builder.BuildkitVersion != "" {
+				fmt.Printf("Using BuildKit Version with new driver opts: %s\n", p.Builder.BuildkitVersion)
+				updateImageVersion(&p.Builder.DriverOptsNew, p.Builder.BuildkitVersion)
+			}
 			createCmd := cmdSetupBuildx(p.Builder, p.Builder.DriverOptsNew)
 			raw, err = createCmd.Output()
 			if err != nil {
@@ -302,6 +308,7 @@ func (p Plugin) Exec() error {
 					fmt.Printf("Error while inspecting buildx builder with new driver opts: %s\n", err)
 					// Mark that the fallback will be used
 					shouldFallback = true
+					p.Builder.Name = ""
 				} else {
 					shouldFallback = false
 				}
@@ -311,10 +318,10 @@ func (p Plugin) Exec() error {
 			// Main code block
 			if (p.Builder.UseLoadedBuildkit && loadedBuildkitTarball && loadedBuildkitVersion) || p.Builder.BuildkitVersion != "" {
 				var version string
-				if p.Builder.UseLoadedBuildkit && loadedBuildkitTarball && loadedBuildkitVersion {
-					version = config.BuildkitVersion
-				} else {
+				if p.Builder.BuildkitVersion != "" {
 					version = p.Builder.BuildkitVersion
+				} else if p.Builder.UseLoadedBuildkit && loadedBuildkitTarball && loadedBuildkitVersion {
+					version = config.BuildkitVersion
 				}
 				fmt.Printf("Using BuildKit Version: %s\n", version)
 				updateImageVersion(&p.Builder.DriverOpts, version)

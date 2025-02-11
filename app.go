@@ -385,6 +385,16 @@ func Run() {
 			Usage:  "Buildkit version to use",
 			EnvVar: "PLUGIN_BUILDKIT_VERSION",
 		},
+		cli.StringFlag{
+			Name:   "buildkit-tls-handshake-timeout",
+			Usage:  "Buildkit TLS handshake timeout override. Default value is 10s",
+			EnvVar: "PLUGIN_BUILDKIT_TLS_HANDSHAKE_TIMEOUT",
+		},
+		cli.StringFlag{
+			Name:   "buildkit-response-header-timeout",
+			Usage:  "Buildkit response header timeout override. Default value is 30s",
+			EnvVar: "PLUGIN_BUILDKIT_RESPONSE_HEADER_TIMEOUT",
+		},
 	}
 
 	if err := app.Run(os.Args); err != nil {
@@ -461,15 +471,17 @@ func run(c *cli.Context) error {
 			ArtifactRegistry: c.String("artifact.registry"),
 		},
 		Builder: Builder{
-			Name:              c.String("builder-name"),
-			DaemonConfig:      c.String("builder-daemon-config"),
-			Driver:            c.String("builder-driver"),
-			DriverOpts:        c.Generic("builder-driver-opts").(*CustomStringSliceFlag).GetValue(),
-			DriverOptsNew:     c.Generic("builder-driver-opts-new").(*CustomStringSliceFlag).GetValue(),
-			RemoteConn:        c.String("builder-remote-conn"),
-			UseLoadedBuildkit: c.BoolT("use-loaded-buildkit"),
-			AssestsDir:        c.String("buildkit-assets-dir"),
-			BuildkitVersion:   c.String("buildkit-version"),
+			Name:                          c.String("builder-name"),
+			DaemonConfig:                  c.String("builder-daemon-config"),
+			Driver:                        c.String("builder-driver"),
+			DriverOpts:                    c.Generic("builder-driver-opts").(*CustomStringSliceFlag).GetValue(),
+			DriverOptsNew:                 c.Generic("builder-driver-opts-new").(*CustomStringSliceFlag).GetValue(),
+			RemoteConn:                    c.String("builder-remote-conn"),
+			UseLoadedBuildkit:             c.BoolT("use-loaded-buildkit"),
+			AssestsDir:                    c.String("buildkit-assets-dir"),
+			BuildkitVersion:               c.String("buildkit-version"),
+			BuildkitTLSHandshakeTimeout:   c.String("buildkit-tls-handshake-timeout"),
+			BuildkitResponseHeaderTimeout: c.String("buildkit-response-header-timeout"),
 		},
 		BaseImageRegistry: c.String("docker.baseimageregistry"),
 		BaseImageUsername: c.String("docker.baseimageusername"),
