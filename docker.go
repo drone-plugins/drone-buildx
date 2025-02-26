@@ -35,15 +35,17 @@ type (
 	}
 
 	Builder struct {
-		Name              string   // Buildx builder name
-		DaemonConfig      string   // Buildx daemon config file path
-		Driver            string   // Buildx driver type
-		DriverOpts        []string // Buildx driver opts
-		DriverOptsNew     []string // Buildx driver opts new
-		RemoteConn        string   // Buildx remote connection endpoint
-		UseLoadedBuildkit bool     // Use loaded buildkit or no
-		AssestsDir        string   // Assets directory
-		BuildkitVersion   string   // Buildkit version
+		Name                          string   // Buildx builder name
+		DaemonConfig                  string   // Buildx daemon config file path
+		Driver                        string   // Buildx driver type
+		DriverOpts                    []string // Buildx driver opts
+		DriverOptsNew                 []string // Buildx driver opts new
+		RemoteConn                    string   // Buildx remote connection endpoint
+		UseLoadedBuildkit             bool     // Use loaded buildkit or no
+		AssestsDir                    string   // Assets directory
+		BuildkitVersion               string   // Buildkit version
+		BuildkitTLSHandshakeTimeout   string   // Buildkit TLS handshake timeout
+		BuildkitResponseHeaderTimeout string   // Buildkit response header timeout
 	}
 
 	// Login defines Docker login parameters.
@@ -140,6 +142,12 @@ type (
 	BuildKitConfig struct {
 		BuildkitVersion string `json:"buildkit_version"`
 	}
+)
+
+const (
+	v2HubRegistryURL string = "https://registry.hub.docker.com/v2/"
+	v1RegistryURL    string = "https://index.docker.io/v1/" // Default registry
+	v2RegistryURL    string = "https://index.docker.io/v2/" // v2 registry is not supported
 )
 
 // Exec executes the plugin step
@@ -285,6 +293,10 @@ func (p Plugin) Exec() error {
 
 		shouldFallback := true
 		if len(p.Builder.DriverOptsNew) != 0 {
+			if p.Builder.BuildkitVersion != "" {
+				fmt.Printf("Using BuildKit Version with new driver opts: %s\n", p.Builder.BuildkitVersion)
+				updateImageVersion(&p.Builder.DriverOptsNew, p.Builder.BuildkitVersion)
+			}
 			createCmd := cmdSetupBuildx(p.Builder, p.Builder.DriverOptsNew)
 			raw, err = createCmd.Output()
 			if err != nil {
@@ -299,6 +311,7 @@ func (p Plugin) Exec() error {
 					fmt.Printf("Error while inspecting buildx builder with new driver opts: %s\n", err)
 					// Mark that the fallback will be used
 					shouldFallback = true
+					p.Builder.Name = ""
 				} else {
 					shouldFallback = false
 				}
@@ -308,10 +321,10 @@ func (p Plugin) Exec() error {
 			// Main code block
 			if (p.Builder.UseLoadedBuildkit && loadedBuildkitTarball && loadedBuildkitVersion) || p.Builder.BuildkitVersion != "" {
 				var version string
-				if p.Builder.UseLoadedBuildkit && loadedBuildkitTarball && loadedBuildkitVersion {
-					version = config.BuildkitVersion
-				} else {
+				if p.Builder.BuildkitVersion != "" {
 					version = p.Builder.BuildkitVersion
+				} else if p.Builder.UseLoadedBuildkit && loadedBuildkitTarball && loadedBuildkitVersion {
+					version = config.BuildkitVersion
 				}
 				fmt.Printf("Using BuildKit Version: %s\n", version)
 				updateImageVersion(&p.Builder.DriverOpts, version)
@@ -456,14 +469,20 @@ func getDigest(metadataFile string) (string, error) {
 
 // helper function to create the docker login command.
 func commandLogin(login Login) *exec.Cmd {
-	if login.Email != "" {
-		return commandLoginEmail(login)
+	loginCopy := login
+	// update v2 docker registry to v1
+	if loginCopy.Registry == v2RegistryURL || loginCopy.Registry == v2HubRegistryURL {
+		fmt.Fprintf(os.Stdout, "Found dockerhub v2 registry, overriding with v1 registry instead: %s\n", v1RegistryURL)
+		loginCopy.Registry = v1RegistryURL
+	}
+	if loginCopy.Email != "" {
+		return commandLoginEmail(loginCopy)
 	}
 	return exec.Command(
 		dockerExe, "login",
-		"-u", login.Username,
-		"-p", login.Password,
-		login.Registry,
+		"-u", loginCopy.Username,
+		"-p", loginCopy.Password,
+		loginCopy.Registry,
 	)
 }
 

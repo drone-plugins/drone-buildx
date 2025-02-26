@@ -4,3 +4,4 @@ vendor
 .vscode/
 Dockerfile
 buildkit/*.tar
+.idea
