@@ -2,6 +2,7 @@ package docker
 
 import (
 	"bytes"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -691,9 +692,11 @@ func sanitizeCacheCommand(build *Build) {
 			// Handle gcp_json_key
 			if strings.Contains(arg, "gcp_json_key=harness_placeholder_gcp_creds") {
 				if build.HarnessSelfHostedGcpJsonKey != "" {
-					// Replace the placeholder with the actual GCP JSON key
-					fmt.Printf("Replacing gcp_json_key with: %s\n", build.HarnessSelfHostedGcpJsonKey)
-					arg = strings.Replace(arg, "gcp_json_key=harness_placeholder_gcp_creds", "gcp_json_key="+build.HarnessSelfHostedGcpJsonKey, 1)
+					// Base64 encode the GCP JSON key
+					encodedGCPJsonKey := base64.StdEncoding.EncodeToString([]byte(build.HarnessSelfHostedGcpJsonKey))
+					// Replace the placeholder with the base64-encoded GCP JSON key
+					fmt.Printf("Replacing gcp_json_key with base64 encoded value: %s\n", encodedGCPJsonKey)
+					arg = strings.Replace(arg, "gcp_json_key=harness_placeholder_gcp_creds", "gcp_json_key="+encodedGCPJsonKey, 1)
 				} else {
 					// Remove the gcp_json_key substring if the actual key is empty
 					fmt.Println("Removing gcp_json_key placeholder as no actual key is provided")
