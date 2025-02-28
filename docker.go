@@ -674,18 +674,14 @@ func sanitizeCacheCommand(build *Build) {
 	// Helper function to sanitize cache arguments
 	sanitizeCacheArgs := func(args []string) []string {
 		for i, arg := range args {
-			// Print the original argument for debugging
-			fmt.Printf("Original argument[%d]: %s\n", i, arg)
 
 			// Replace access_key_id if placeholder exists and the actual key is not empty
 			if strings.Contains(arg, "access_key_id=harness_placeholder_aws_creds") && build.HarnessSelfHostedS3AccessKey != "" {
-				fmt.Printf("Replacing access_key_id with: %s\n", build.HarnessSelfHostedS3AccessKey)
 				arg = strings.Replace(arg, "access_key_id=harness_placeholder_aws_creds", "access_key_id="+build.HarnessSelfHostedS3AccessKey, 1)
 			}
 
 			// Replace secret_access_key if placeholder exists and the actual key is not empty
 			if strings.Contains(arg, "secret_access_key=harness_placeholder_aws_creds") && build.HarnessSelfHostedS3SecretKey != "" {
-				fmt.Printf("Replacing secret_access_key with: %s\n", build.HarnessSelfHostedS3SecretKey)
 				arg = strings.Replace(arg, "secret_access_key=harness_placeholder_aws_creds", "secret_access_key="+build.HarnessSelfHostedS3SecretKey, 1)
 			}
 
@@ -695,11 +691,9 @@ func sanitizeCacheCommand(build *Build) {
 					// Base64 encode the GCP JSON key
 					encodedGCPJsonKey := base64.StdEncoding.EncodeToString([]byte(build.HarnessSelfHostedGcpJsonKey))
 					// Replace the placeholder with the base64-encoded GCP JSON key
-					fmt.Printf("Replacing gcp_json_key with base64 encoded value: %s\n", encodedGCPJsonKey)
 					arg = strings.Replace(arg, "gcp_json_key=harness_placeholder_gcp_creds", "gcp_json_key="+encodedGCPJsonKey, 1)
 				} else {
 					// Remove the gcp_json_key substring if the actual key is empty
-					fmt.Println("Removing gcp_json_key placeholder as no actual key is provided")
 					arg = strings.Replace(arg, ",gcp_json_key=harness_placeholder_gcp_creds", "", 1)
 					arg = strings.Replace(arg, "gcp_json_key=harness_placeholder_gcp_creds,", "", 1)
 					arg = strings.Replace(arg, "gcp_json_key=harness_placeholder_gcp_creds", "", 1)
@@ -707,23 +701,13 @@ func sanitizeCacheCommand(build *Build) {
 			}
 
 			// Update the argument
-			fmt.Printf("Updated argument[%d]: %s\n", i, arg)
 			args[i] = arg
 		}
 		return args
 	}
 
-	// Debug CacheFrom before sanitization
-	fmt.Println("Sanitizing CacheFrom...")
-	fmt.Printf("Before: %v\n", build.CacheFrom)
 	build.CacheFrom = sanitizeCacheArgs(build.CacheFrom)
-	fmt.Printf("After: %v\n", build.CacheFrom)
-
-	// Debug CacheTo before sanitization
-	fmt.Println("Sanitizing CacheTo...")
-	fmt.Printf("Before: %v\n", build.CacheTo)
 	build.CacheTo = sanitizeCacheArgs(build.CacheTo)
-	fmt.Printf("After: %v\n", build.CacheTo)
 }
 
 func getSecretStringCmdArg(kvp string) (string, error) {
