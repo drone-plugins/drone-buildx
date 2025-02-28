@@ -267,7 +267,7 @@ func TestSanitizeCacheCommand(t *testing.T) {
 				HarnessSelfHostedS3SecretKey: "actual_secret_key",
 				HarnessSelfHostedGcpJsonKey:  "actual_gcp_key",
 			},
-			expectedCacheFrom: []string{"type=gcs,gcp_json_key=actual_gcp_key,access_key_id=actual_access_key,secret_access_key=actual_secret_key"},
+			expectedCacheFrom: []string{"type=gcs,gcp_json_key=YWN0dWFsX2djcF9rZXk=,access_key_id=actual_access_key,secret_access_key=actual_secret_key"},
 			expectedCacheTo:   []string{},
 		},
 		{
