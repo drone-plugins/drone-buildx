@@ -245,7 +245,7 @@ func TestSanitizeCacheCommand(t *testing.T) {
 				CacheTo:                     []string{},
 				HarnessSelfHostedGcpJsonKey: "actual_gcp_key",
 			},
-			expectedCacheFrom: []string{"type=gcs,gcp_json_key=actual_gcp_key"},
+			expectedCacheFrom: []string{"type=gcs,gcp_json_key=YWN0dWFsX2djcF9rZXk="},
 			expectedCacheTo:   []string{},
 		},
 		{
