@@ -2,6 +2,7 @@ package docker
 
 import (
 	"bytes"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -60,36 +61,39 @@ type (
 
 	// Build defines Docker build parameters.
 	Build struct {
-		Remote              string   // Git remote URL
-		Name                string   // Docker build using default named tag
-		Dockerfile          string   // Docker build Dockerfile
-		Context             string   // Docker build context
-		Tags                []string // Docker build tags
-		Args                []string // Docker build args
-		ArgsEnv             []string // Docker build args from env
-		ArgsNew             []string // Docker build args with comma seperated values
-		IsMultipleBuildArgs bool     // env variable for fall back
-		Target              string   // Docker build target
-		Squash              bool     // Docker build squash
-		Pull                bool     // Docker build pull
-		CacheFrom           []string // Docker buildx cache-from
-		CacheTo             []string // Docker buildx cache-to
-		Compress            bool     // Docker build compress
-		Repo                string   // Docker build repository
-		LabelSchema         []string // label-schema Label map
-		AutoLabel           bool     // auto-label bool
-		Labels              []string // Label map
-		Link                string   // Git repo link
-		NoCache             bool     // Docker build no-cache
-		Secret              string   // secret keypair
-		SecretEnvs          []string // Docker build secrets with env var as source
-		SecretFiles         []string // Docker build secrets with file as source
-		AddHost             []string // Docker build add-host
-		Quiet               bool     // Docker build quiet
-		Platform            string   // Docker build platform
-		SSHAgentKey         string   // Docker build ssh agent key
-		SSHKeyPath          string   // Docker build ssh key path
-		BuildxLoad          bool     // Docker buildx --load
+		Remote                       string   // Git remote URL
+		Name                         string   // Docker build using default named tag
+		Dockerfile                   string   // Docker build Dockerfile
+		Context                      string   // Docker build context
+		Tags                         []string // Docker build tags
+		Args                         []string // Docker build args
+		ArgsEnv                      []string // Docker build args from env
+		ArgsNew                      []string // Docker build args with comma seperated values
+		IsMultipleBuildArgs          bool     // env variable for fall back
+		Target                       string   // Docker build target
+		Squash                       bool     // Docker build squash
+		Pull                         bool     // Docker build pull
+		CacheFrom                    []string // Docker buildx cache-from
+		CacheTo                      []string // Docker buildx cache-to
+		Compress                     bool     // Docker build compress
+		Repo                         string   // Docker build repository
+		LabelSchema                  []string // label-schema Label map
+		AutoLabel                    bool     // auto-label bool
+		Labels                       []string // Label map
+		Link                         string   // Git repo link
+		NoCache                      bool     // Docker build no-cache
+		Secret                       string   // secret keypair
+		SecretEnvs                   []string // Docker build secrets with env var as source
+		SecretFiles                  []string // Docker build secrets with file as source
+		AddHost                      []string // Docker build add-host
+		Quiet                        bool     // Docker build quiet
+		Platform                     string   // Docker build platform
+		SSHAgentKey                  string   // Docker build ssh agent key
+		SSHKeyPath                   string   // Docker build ssh key path
+		BuildxLoad                   bool     // Docker buildx --load
+		HarnessSelfHostedS3AccessKey string   // Harness self-hosted s3 access key
+		HarnessSelfHostedS3SecretKey string   // Harness self-hosted s3 secret key
+		HarnessSelfHostedGcpJsonKey  string   // Harness self hosted gcp json region
 	}
 
 	// Plugin defines the Docker plugin parameters.
@@ -562,6 +566,8 @@ func commandBuildx(build Build, builder Builder, dryrun bool, metadataFile strin
 		"-f", build.Dockerfile,
 	}
 
+	sanitizeCacheCommand(&build)
+
 	if builder.Name != "" {
 		args = append(args, "--builder", builder.Name)
 	}
@@ -662,6 +668,46 @@ func commandBuildx(build Build, builder Builder, dryrun bool, metadataFile strin
 		}
 	}
 	return exec.Command(dockerExe, args...)
+}
+
+func sanitizeCacheCommand(build *Build) {
+	// Helper function to sanitize cache arguments
+	sanitizeCacheArgs := func(args []string) []string {
+		for i, arg := range args {
+
+			// Replace access_key_id if placeholder exists and the actual key is not empty
+			if strings.Contains(arg, "access_key_id=harness_placeholder_aws_creds") && build.HarnessSelfHostedS3AccessKey != "" {
+				arg = strings.Replace(arg, "access_key_id=harness_placeholder_aws_creds", "access_key_id="+build.HarnessSelfHostedS3AccessKey, 1)
+			}
+
+			// Replace secret_access_key if placeholder exists and the actual key is not empty
+			if strings.Contains(arg, "secret_access_key=harness_placeholder_aws_creds") && build.HarnessSelfHostedS3SecretKey != "" {
+				arg = strings.Replace(arg, "secret_access_key=harness_placeholder_aws_creds", "secret_access_key="+build.HarnessSelfHostedS3SecretKey, 1)
+			}
+
+			// Handle gcp_json_key
+			if strings.Contains(arg, "gcp_json_key=harness_placeholder_gcp_creds") {
+				if build.HarnessSelfHostedGcpJsonKey != "" {
+					// Base64 encode the GCP JSON key
+					encodedGCPJsonKey := base64.StdEncoding.EncodeToString([]byte(build.HarnessSelfHostedGcpJsonKey))
+					// Replace the placeholder with the base64-encoded GCP JSON key
+					arg = strings.Replace(arg, "gcp_json_key=harness_placeholder_gcp_creds", "gcp_json_key="+encodedGCPJsonKey, 1)
+				} else {
+					// Remove the gcp_json_key substring if the actual key is empty
+					arg = strings.Replace(arg, ",gcp_json_key=harness_placeholder_gcp_creds", "", 1)
+					arg = strings.Replace(arg, "gcp_json_key=harness_placeholder_gcp_creds,", "", 1)
+					arg = strings.Replace(arg, "gcp_json_key=harness_placeholder_gcp_creds", "", 1)
+				}
+			}
+
+			// Update the argument
+			args[i] = arg
+		}
+		return args
+	}
+
+	build.CacheFrom = sanitizeCacheArgs(build.CacheFrom)
+	build.CacheTo = sanitizeCacheArgs(build.CacheTo)
 }
 
 func getSecretStringCmdArg(kvp string) (string, error) {
