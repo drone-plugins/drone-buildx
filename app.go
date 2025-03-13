@@ -410,6 +410,11 @@ func Run() {
 			Usage:  "build target",
 			EnvVar: "PLUGIN_HARNESS_SELF_HOSTED_GCP_JSON_KEY",
 		},
+		cli.StringSliceFlag{
+			Name:   "buildx-options",
+			Usage:  "additional options to pass directly to the buildx command",
+			EnvVar: "PLUGIN_BUILDX_OPTIONS",
+		},
 	}
 
 	if err := app.Run(os.Args); err != nil {
@@ -471,6 +476,7 @@ func run(c *cli.Context) error {
 			HarnessSelfHostedS3AccessKey: c.String("harness-self-hosted-s3-access-key"),
 			HarnessSelfHostedS3SecretKey: c.String("harness-self-hosted-s3-secret-key"),
 			HarnessSelfHostedGcpJsonKey:  c.String("harness-self-hosted-gcp-json-key"),
+			BuildxOptions:                c.StringSlice("buildx-options"),
 		},
 		Daemon: Daemon{
 			Registry:         c.String("docker.registry"),

@@ -94,6 +94,7 @@ type (
 		HarnessSelfHostedS3AccessKey string   // Harness self-hosted s3 access key
 		HarnessSelfHostedS3SecretKey string   // Harness self-hosted s3 secret key
 		HarnessSelfHostedGcpJsonKey  string   // Harness self hosted gcp json region
+		BuildxOptions                []string // Generic buildx options passed directly to the buildx command
 	}
 
 	// Plugin defines the Docker plugin parameters.
@@ -580,6 +581,9 @@ func commandBuildx(build Build, builder Builder, dryrun bool, metadataFile strin
 		}
 	} else {
 		args = append(args, "--push")
+	}
+	if len(build.BuildxOptions) > 0 {
+		args = append(args, build.BuildxOptions...)
 	}
 	args = append(args, build.Context)
 	if metadataFile != "" {
