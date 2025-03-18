@@ -206,7 +206,6 @@ pipeline:
                       when:
                         stageStatus: Success
                         condition: <+codebase.build.type> == "branch"
-    - parallel:
         - stage:
             identifier: linarm64
             type: CI
@@ -367,155 +366,155 @@ pipeline:
                       when:
                         stageStatus: Success
                         condition: <+codebase.build.type> == "branch"
-    - stage:
-        name: win-1809-amd64
-        identifier: win1809amd64
-        description: ""
-        type: CI
-        spec:
-          cloneCodebase: true
-          caching:
-            enabled: false
-            paths: []
-          execution:
-            steps:
-              - step:
-                  type: Run
-                  name: Build Binary
-                  identifier: Build_Binary
-                  spec:
-                    connectorRef: Plugins_Docker_Hub_Connector
-                    image: golang:1.22
-                    shell: Sh
-                    command: |-
-                      # force go modules
-                      export GOPATH=""
-
-                      # disable cgo
-                      export CGO_ENABLED=0
-
-                      set -e
-                      set -x
-
-                      # linux
-                      GOOS=windows
-
-                      go build -o release/windows/amd64/drone-docker.exe ./cmd/drone-docker
-              - step:
-                  type: Plugin
-                  name: Build and Push on Tag
-                  identifier: Docker_Build_Push
-                  spec:
-                    connectorRef: Plugins_Docker_Hub_Connector
-                    image: plugins/docker
-                    settings:
-                      username: drone
-                      password: <+secrets.getValue("Plugins_Docker_Hub_Pat")>
-                      repo: plugins/buildx
-                      dockerfile: docker/docker/Dockerfile.windows.amd64.1809
-                      auto_tag: "true"
-                      auto_tag_suffix: windows-1809-amd64
-                  when:
-                    stageStatus: Success
-                    condition: <+codebase.build.type> == "tag"
-              - step:
-                  type: BuildAndPushDockerRegistry
-                  name: BuildAndPushDockerRegistry_1
-                  identifier: BuildAndPushDockerRegistry_1
-                  spec:
-                    connectorRef: Plugins_Docker_Hub_Connector
-                    repo: plugins/buildx
-                    tags:
-                      - windows-1809-amd64
-                    caching: false
-                    dockerfile: docker/docker/Dockerfile.windows.amd64.1809
-                  when:
-                    stageStatus: Success
-                    condition: <+codebase.build.type> == "branch"
-          buildIntelligence:
-            enabled: false
-          infrastructure:
-            type: VM
+        - stage:
+            name: win-1809-amd64
+            identifier: win1809amd64
+            description: ""
+            type: CI
             spec:
-              type: Pool
-              spec:
-                poolName: windows-2019
+              cloneCodebase: true
+              caching:
+                enabled: false
+                paths: []
+              execution:
+                steps:
+                  - step:
+                      type: Run
+                      name: Build Binary
+                      identifier: Build_Binary
+                      spec:
+                        connectorRef: Plugins_Docker_Hub_Connector
+                        image: golang:1.22
+                        shell: Sh
+                        command: |-
+                          # force go modules
+                          export GOPATH=""
+
+                          # disable cgo
+                          export CGO_ENABLED=0
+
+                          set -e
+                          set -x
+
+                          # linux
+                          GOOS=windows
+
+                          go build -o release/windows/amd64/drone-docker.exe ./cmd/drone-docker
+                  - step:
+                      type: Plugin
+                      name: Build and Push on Tag
+                      identifier: Docker_Build_Push
+                      spec:
+                        connectorRef: Plugins_Docker_Hub_Connector
+                        image: plugins/docker
+                        settings:
+                          username: drone
+                          password: <+secrets.getValue("Plugins_Docker_Hub_Pat")>
+                          repo: plugins/buildx
+                          dockerfile: docker/docker/Dockerfile.windows.amd64.1809
+                          auto_tag: "true"
+                          auto_tag_suffix: windows-1809-amd64
+                      when:
+                        stageStatus: Success
+                        condition: <+codebase.build.type> == "tag"
+                  - step:
+                      type: BuildAndPushDockerRegistry
+                      name: BuildAndPushDockerRegistry_1
+                      identifier: BuildAndPushDockerRegistry_1
+                      spec:
+                        connectorRef: Plugins_Docker_Hub_Connector
+                        repo: plugins/buildx
+                        tags:
+                          - windows-1809-amd64
+                        caching: false
+                        dockerfile: docker/docker/Dockerfile.windows.amd64.1809
+                      when:
+                        stageStatus: Success
+                        condition: <+codebase.build.type> == "branch"
+              buildIntelligence:
+                enabled: false
+              infrastructure:
+                type: VM
+                spec:
+                  type: Pool
+                  spec:
+                    poolName: windows-2019
+                    os: Windows
+            delegateSelectors:
+              - windows-vm
+        - stage:
+            identifier: winamd64
+            type: CI
+            name: win-ltsc2022-amd64
+            description: ""
+            spec:
+              cloneCodebase: true
+              caching:
+                enabled: false
+                paths: []
+              platform:
                 os: Windows
-        delegateSelectors:
-          - windows-vm
-    - stage:
-        identifier: winamd64
-        type: CI
-        name: win-ltsc2022-amd64
-        description: ""
-        spec:
-          cloneCodebase: true
-          caching:
-            enabled: false
-            paths: []
-          platform:
-            os: Windows
-            arch: Amd64
-          runtime:
-            type: Cloud
-            spec: {}
-          execution:
-            steps:
-              - step:
-                  identifier: build_amd64ltsc2022
-                  type: Run
-                  name: Build Binary
-                  spec:
-                    connectorRef: Plugins_Docker_Hub_Connector
-                    image: golang:1.22
-                    shell: Sh
-                    command: |-
-                      # force go modules
-                      export GOPATH=""
+                arch: Amd64
+              runtime:
+                type: Cloud
+                spec: {}
+              execution:
+                steps:
+                  - step:
+                      identifier: build_amd64ltsc2022
+                      type: Run
+                      name: Build Binary
+                      spec:
+                        connectorRef: Plugins_Docker_Hub_Connector
+                        image: golang:1.22
+                        shell: Sh
+                        command: |-
+                          # force go modules
+                          export GOPATH=""
 
-                      # disable cgo
-                      export CGO_ENABLED=0
+                          # disable cgo
+                          export CGO_ENABLED=0
 
-                      set -e
-                      set -x
+                          set -e
+                          set -x
 
-                      # windows
-                      GOOS=windows
+                          # windows
+                          GOOS=windows
 
-                      go build -o release/windows/amd64/drone-docker.exe ./cmd/drone-docker
-              - step:
-                  type: Plugin
-                  name: Build and Push on Tag
-                  identifier: Plugin_1
-                  spec:
-                    connectorRef: Plugins_Docker_Hub_Connector
-                    image: plugins/docker
-                    settings:
-                      username: drone
-                      password: <+secrets.getValue("Plugins_Docker_Hub_Pat")>
-                      repo: plugins/buildx
-                      dockerfile: docker/docker/Dockerfile.windows.amd64.ltsc2022
-                      auto_tag: "true"
-                      auto_tag_suffix: windows-ltsc2022-amd64
-                  when:
-                    stageStatus: Success
-                    condition: <+codebase.build.type> == "tag"
-              - step:
-                  type: BuildAndPushDockerRegistry
-                  name: Build and Push on Branch
-                  identifier: BuildAndPushDockerRegistry_1
-                  spec:
-                    connectorRef: Plugins_Docker_Hub_Connector
-                    repo: plugins/buildx
-                    tags:
-                      - windows-ltsc2022-amd64
-                    caching: false
-                    dockerfile: docker/docker/Dockerfile.windows.amd64.ltsc2022
-                  when:
-                    stageStatus: Success
-                    condition: <+codebase.build.type> == "branch"
-          buildIntelligence:
-            enabled: false
+                          go build -o release/windows/amd64/drone-docker.exe ./cmd/drone-docker
+                  - step:
+                      type: Plugin
+                      name: Build and Push on Tag
+                      identifier: Plugin_1
+                      spec:
+                        connectorRef: Plugins_Docker_Hub_Connector
+                        image: plugins/docker
+                        settings:
+                          username: drone
+                          password: <+secrets.getValue("Plugins_Docker_Hub_Pat")>
+                          repo: plugins/buildx
+                          dockerfile: docker/docker/Dockerfile.windows.amd64.ltsc2022
+                          auto_tag: "true"
+                          auto_tag_suffix: windows-ltsc2022-amd64
+                      when:
+                        stageStatus: Success
+                        condition: <+codebase.build.type> == "tag"
+                  - step:
+                      type: BuildAndPushDockerRegistry
+                      name: Build and Push on Branch
+                      identifier: BuildAndPushDockerRegistry_1
+                      spec:
+                        connectorRef: Plugins_Docker_Hub_Connector
+                        repo: plugins/buildx
+                        tags:
+                          - windows-ltsc2022-amd64
+                        caching: false
+                        dockerfile: docker/docker/Dockerfile.windows.amd64.ltsc2022
+                      when:
+                        stageStatus: Success
+                        condition: <+codebase.build.type> == "branch"
+              buildIntelligence:
+                enabled: false
     - parallel:
         - stage:
             identifier: Manifest
@@ -649,3 +648,4 @@ pipeline:
   projectIdentifier: Drone_Plugins
   identifier: dronebuildxharness
   name: drone-buildx-harness
+  allowStageExecutions: true
