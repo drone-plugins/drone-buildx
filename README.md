@@ -125,6 +125,17 @@ docker run --rm \
   plugins/docker --dry-run
 ```
 
+### Flag Usage
+
+Use PLUGIN_BUILDX_OPTIONS
+
+You can pass all buildx supported flags together using the PLUGIN_BUILDX_OPTIONS environment variable:
+
+```console
+envVariables:
+  PLUGIN_BUILDX_OPTIONS: "--provenance=false, --platform=linux/amd64"
+```
+
 ## Developer Notes
 
 - When updating the base image, you will need to update for each architecture and OS.
