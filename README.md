@@ -129,7 +129,7 @@ docker run --rm \
 
 Use PLUGIN_BUILDX_OPTIONS
 
-You can pass all flags together using the PLUGIN_BUILDX_OPTIONS environment variable:
+You can pass all buildx supported flags together using the PLUGIN_BUILDX_OPTIONS environment variable:
 
 ```console
 envVariables:
