@@ -121,7 +121,7 @@ pipeline:
                         repo: plugins/buildx
                         tags:
                           - linux-amd64
-                        caching: true
+                        caching: false
                         dockerfile: docker/docker/Dockerfile.linux.amd64
                       when:
                         stageStatus: Success
@@ -201,7 +201,7 @@ pipeline:
                         repo: plugins/buildx-heroku
                         tags:
                           - linux-amd64
-                        caching: true
+                        caching: false
                         dockerfile: docker/heroku/Dockerfile.linux.amd64
                       when:
                         stageStatus: Success
@@ -281,7 +281,7 @@ pipeline:
                         repo: plugins/buildx
                         tags:
                           - linux-arm64
-                        caching: true
+                        caching: false
                         dockerfile: docker/docker/Dockerfile.linux.arm64
                       when:
                         stageStatus: Success
@@ -361,7 +361,7 @@ pipeline:
                         repo: plugins/buildx-heroku
                         tags:
                           - linux-arm64
-                        caching: true
+                        caching: false
                         dockerfile: docker/heroku/Dockerfile.linux.arm64
                       when:
                         stageStatus: Success
