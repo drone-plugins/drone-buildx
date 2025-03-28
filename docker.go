@@ -2,6 +2,7 @@ package docker
 
 import (
 	"bytes"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -35,15 +36,17 @@ type (
 	}
 
 	Builder struct {
-		Name              string   // Buildx builder name
-		DaemonConfig      string   // Buildx daemon config file path
-		Driver            string   // Buildx driver type
-		DriverOpts        []string // Buildx driver opts
-		DriverOptsNew     []string // Buildx driver opts new
-		RemoteConn        string   // Buildx remote connection endpoint
-		UseLoadedBuildkit bool     // Use loaded buildkit or no
-		AssestsDir        string   // Assets directory
-		BuildkitVersion   string   // Buildkit version
+		Name                          string   // Buildx builder name
+		DaemonConfig                  string   // Buildx daemon config file path
+		Driver                        string   // Buildx driver type
+		DriverOpts                    []string // Buildx driver opts
+		DriverOptsNew                 []string // Buildx driver opts new
+		RemoteConn                    string   // Buildx remote connection endpoint
+		UseLoadedBuildkit             bool     // Use loaded buildkit or no
+		AssestsDir                    string   // Assets directory
+		BuildkitVersion               string   // Buildkit version
+		BuildkitTLSHandshakeTimeout   string   // Buildkit TLS handshake timeout
+		BuildkitResponseHeaderTimeout string   // Buildkit response header timeout
 	}
 
 	// Login defines Docker login parameters.
@@ -58,36 +61,40 @@ type (
 
 	// Build defines Docker build parameters.
 	Build struct {
-		Remote              string   // Git remote URL
-		Name                string   // Docker build using default named tag
-		Dockerfile          string   // Docker build Dockerfile
-		Context             string   // Docker build context
-		Tags                []string // Docker build tags
-		Args                []string // Docker build args
-		ArgsEnv             []string // Docker build args from env
-		ArgsNew             []string // Docker build args with comma seperated values
-		IsMultipleBuildArgs bool     // env variable for fall back
-		Target              string   // Docker build target
-		Squash              bool     // Docker build squash
-		Pull                bool     // Docker build pull
-		CacheFrom           []string // Docker buildx cache-from
-		CacheTo             []string // Docker buildx cache-to
-		Compress            bool     // Docker build compress
-		Repo                string   // Docker build repository
-		LabelSchema         []string // label-schema Label map
-		AutoLabel           bool     // auto-label bool
-		Labels              []string // Label map
-		Link                string   // Git repo link
-		NoCache             bool     // Docker build no-cache
-		Secret              string   // secret keypair
-		SecretEnvs          []string // Docker build secrets with env var as source
-		SecretFiles         []string // Docker build secrets with file as source
-		AddHost             []string // Docker build add-host
-		Quiet               bool     // Docker build quiet
-		Platform            string   // Docker build platform
-		SSHAgentKey         string   // Docker build ssh agent key
-		SSHKeyPath          string   // Docker build ssh key path
-		BuildxLoad          bool     // Docker buildx --load
+		Remote                       string   // Git remote URL
+		Name                         string   // Docker build using default named tag
+		Dockerfile                   string   // Docker build Dockerfile
+		Context                      string   // Docker build context
+		Tags                         []string // Docker build tags
+		Args                         []string // Docker build args
+		ArgsEnv                      []string // Docker build args from env
+		ArgsNew                      []string // Docker build args with comma seperated values
+		IsMultipleBuildArgs          bool     // env variable for fall back
+		Target                       string   // Docker build target
+		Squash                       bool     // Docker build squash
+		Pull                         bool     // Docker build pull
+		CacheFrom                    []string // Docker buildx cache-from
+		CacheTo                      []string // Docker buildx cache-to
+		Compress                     bool     // Docker build compress
+		Repo                         string   // Docker build repository
+		LabelSchema                  []string // label-schema Label map
+		AutoLabel                    bool     // auto-label bool
+		Labels                       []string // Label map
+		Link                         string   // Git repo link
+		NoCache                      bool     // Docker build no-cache
+		Secret                       string   // secret keypair
+		SecretEnvs                   []string // Docker build secrets with env var as source
+		SecretFiles                  []string // Docker build secrets with file as source
+		AddHost                      []string // Docker build add-host
+		Quiet                        bool     // Docker build quiet
+		Platform                     string   // Docker build platform
+		SSHAgentKey                  string   // Docker build ssh agent key
+		SSHKeyPath                   string   // Docker build ssh key path
+		BuildxLoad                   bool     // Docker buildx --load
+		HarnessSelfHostedS3AccessKey string   // Harness self-hosted s3 access key
+		HarnessSelfHostedS3SecretKey string   // Harness self-hosted s3 secret key
+		HarnessSelfHostedGcpJsonKey  string   // Harness self hosted gcp json region
+		BuildxOptions                []string // Generic buildx options passed directly to the buildx command
 	}
 
 	// Plugin defines the Docker plugin parameters.
@@ -137,6 +144,12 @@ type (
 	BuildKitConfig struct {
 		BuildkitVersion string `json:"buildkit_version"`
 	}
+)
+
+const (
+	v2HubRegistryURL string = "https://registry.hub.docker.com/v2/"
+	v1RegistryURL    string = "https://index.docker.io/v1/" // Default registry
+	v2RegistryURL    string = "https://index.docker.io/v2/" // v2 registry is not supported
 )
 
 // Exec executes the plugin step
@@ -282,6 +295,10 @@ func (p Plugin) Exec() error {
 
 		shouldFallback := true
 		if len(p.Builder.DriverOptsNew) != 0 {
+			if p.Builder.BuildkitVersion != "" {
+				fmt.Printf("Using BuildKit Version with new driver opts: %s\n", p.Builder.BuildkitVersion)
+				updateImageVersion(&p.Builder.DriverOptsNew, p.Builder.BuildkitVersion)
+			}
 			createCmd := cmdSetupBuildx(p.Builder, p.Builder.DriverOptsNew)
 			raw, err = createCmd.Output()
 			if err != nil {
@@ -296,6 +313,7 @@ func (p Plugin) Exec() error {
 					fmt.Printf("Error while inspecting buildx builder with new driver opts: %s\n", err)
 					// Mark that the fallback will be used
 					shouldFallback = true
+					p.Builder.Name = ""
 				} else {
 					shouldFallback = false
 				}
@@ -305,10 +323,10 @@ func (p Plugin) Exec() error {
 			// Main code block
 			if (p.Builder.UseLoadedBuildkit && loadedBuildkitTarball && loadedBuildkitVersion) || p.Builder.BuildkitVersion != "" {
 				var version string
-				if p.Builder.UseLoadedBuildkit && loadedBuildkitTarball && loadedBuildkitVersion {
-					version = config.BuildkitVersion
-				} else {
+				if p.Builder.BuildkitVersion != "" {
 					version = p.Builder.BuildkitVersion
+				} else if p.Builder.UseLoadedBuildkit && loadedBuildkitTarball && loadedBuildkitVersion {
+					version = config.BuildkitVersion
 				}
 				fmt.Printf("Using BuildKit Version: %s\n", version)
 				updateImageVersion(&p.Builder.DriverOpts, version)
@@ -453,14 +471,20 @@ func getDigest(metadataFile string) (string, error) {
 
 // helper function to create the docker login command.
 func commandLogin(login Login) *exec.Cmd {
-	if login.Email != "" {
-		return commandLoginEmail(login)
+	loginCopy := login
+	// update v2 docker registry to v1
+	if loginCopy.Registry == v2RegistryURL || loginCopy.Registry == v2HubRegistryURL {
+		fmt.Fprintf(os.Stdout, "Found dockerhub v2 registry, overriding with v1 registry instead: %s\n", v1RegistryURL)
+		loginCopy.Registry = v1RegistryURL
+	}
+	if loginCopy.Email != "" {
+		return commandLoginEmail(loginCopy)
 	}
 	return exec.Command(
 		dockerExe, "login",
-		"-u", login.Username,
-		"-p", login.Password,
-		login.Registry,
+		"-u", loginCopy.Username,
+		"-p", loginCopy.Password,
+		loginCopy.Registry,
 	)
 }
 
@@ -543,6 +567,8 @@ func commandBuildx(build Build, builder Builder, dryrun bool, metadataFile strin
 		"-f", build.Dockerfile,
 	}
 
+	sanitizeCacheCommand(&build)
+
 	if builder.Name != "" {
 		args = append(args, "--builder", builder.Name)
 	}
@@ -555,6 +581,9 @@ func commandBuildx(build Build, builder Builder, dryrun bool, metadataFile strin
 		}
 	} else {
 		args = append(args, "--push")
+	}
+	if len(build.BuildxOptions) > 0 {
+		args = append(args, build.BuildxOptions...)
 	}
 	args = append(args, build.Context)
 	if metadataFile != "" {
@@ -643,6 +672,46 @@ func commandBuildx(build Build, builder Builder, dryrun bool, metadataFile strin
 		}
 	}
 	return exec.Command(dockerExe, args...)
+}
+
+func sanitizeCacheCommand(build *Build) {
+	// Helper function to sanitize cache arguments
+	sanitizeCacheArgs := func(args []string) []string {
+		for i, arg := range args {
+
+			// Replace access_key_id if placeholder exists and the actual key is not empty
+			if strings.Contains(arg, "access_key_id=harness_placeholder_aws_creds") && build.HarnessSelfHostedS3AccessKey != "" {
+				arg = strings.Replace(arg, "access_key_id=harness_placeholder_aws_creds", "access_key_id="+build.HarnessSelfHostedS3AccessKey, 1)
+			}
+
+			// Replace secret_access_key if placeholder exists and the actual key is not empty
+			if strings.Contains(arg, "secret_access_key=harness_placeholder_aws_creds") && build.HarnessSelfHostedS3SecretKey != "" {
+				arg = strings.Replace(arg, "secret_access_key=harness_placeholder_aws_creds", "secret_access_key="+build.HarnessSelfHostedS3SecretKey, 1)
+			}
+
+			// Handle gcp_json_key
+			if strings.Contains(arg, "gcp_json_key=harness_placeholder_gcp_creds") {
+				if build.HarnessSelfHostedGcpJsonKey != "" {
+					// Base64 encode the GCP JSON key
+					encodedGCPJsonKey := base64.StdEncoding.EncodeToString([]byte(build.HarnessSelfHostedGcpJsonKey))
+					// Replace the placeholder with the base64-encoded GCP JSON key
+					arg = strings.Replace(arg, "gcp_json_key=harness_placeholder_gcp_creds", "gcp_json_key="+encodedGCPJsonKey, 1)
+				} else {
+					// Remove the gcp_json_key substring if the actual key is empty
+					arg = strings.Replace(arg, ",gcp_json_key=harness_placeholder_gcp_creds", "", 1)
+					arg = strings.Replace(arg, "gcp_json_key=harness_placeholder_gcp_creds,", "", 1)
+					arg = strings.Replace(arg, "gcp_json_key=harness_placeholder_gcp_creds", "", 1)
+				}
+			}
+
+			// Update the argument
+			args[i] = arg
+		}
+		return args
+	}
+
+	build.CacheFrom = sanitizeCacheArgs(build.CacheFrom)
+	build.CacheTo = sanitizeCacheArgs(build.CacheTo)
 }
 
 func getSecretStringCmdArg(kvp string) (string, error) {
