@@ -415,6 +415,21 @@ func Run() {
 			Usage:  "additional options to pass directly to the buildx command",
 			EnvVar: "PLUGIN_BUILDX_OPTIONS",
 		},
+		cli.BoolFlag{
+			Name:   "push-only",
+			Usage:  "push only mode, skips build process",
+			EnvVar: "PLUGIN_PUSH_ONLY",
+		},
+		cli.StringFlag{
+			Name:   "source-tar-path",
+			Usage:  "path to Docker image tar file to load and push",
+			EnvVar: "PLUGIN_SOURCE_TAR_PATH",
+		},
+		cli.StringFlag{
+			Name:   "tar-path",
+			Usage:  "path to save Docker image as tar file",
+			EnvVar: "PLUGIN_TAR_PATH",
+		},
 	}
 
 	if err := app.Run(os.Args); err != nil {
@@ -510,6 +525,9 @@ func run(c *cli.Context) error {
 		BaseImageRegistry: c.String("docker.baseimageregistry"),
 		BaseImageUsername: c.String("docker.baseimageusername"),
 		BaseImagePassword: c.String("docker.baseimagepassword"),
+		PushOnly:          c.Bool("push-only"),
+		SourceTarPath:     c.String("source-tar-path"),
+		TarPath:           c.String("tar-path"),
 	}
 
 	if c.Bool("tags.auto") {
