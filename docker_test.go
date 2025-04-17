@@ -339,3 +339,62 @@ func TestGetDigest(t *testing.T) {
 		})
 	}
 }
+
+func TestCommandLoadTar(t *testing.T) {
+	tests := []struct {
+		name    string
+		tarPath string
+		want    *exec.Cmd
+	}{
+		{
+			name:    "simple path",
+			tarPath: "/path/to/image.tar",
+			want:    exec.Command(dockerExe, "load", "-i", "/path/to/image.tar"),
+		},
+		{
+			name:    "path with spaces",
+			tarPath: "/path with spaces/image.tar",
+			want:    exec.Command(dockerExe, "load", "-i", "/path with spaces/image.tar"),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cmd := commandLoadTar(tt.tarPath)
+			if !reflect.DeepEqual(cmd.String(), tt.want.String()) {
+				t.Errorf("commandLoadTar() = %v, want %v", cmd, tt.want)
+			}
+		})
+	}
+}
+
+func TestCommandSaveTar(t *testing.T) {
+	tests := []struct {
+		name    string
+		tag     string
+		tarPath string
+		want    *exec.Cmd
+	}{
+		{
+			name:    "simple inputs",
+			tag:     "myimage:latest",
+			tarPath: "/path/to/output.tar",
+			want:    exec.Command(dockerExe, "save", "-o", "/path/to/output.tar", "myimage:latest"),
+		},
+		{
+			name:    "complex registry",
+			tag:     "registry.example.com/project/image:v1.2.3",
+			tarPath: "/output/dir/image.tar",
+			want:    exec.Command(dockerExe, "save", "-o", "/output/dir/image.tar", "registry.example.com/project/image:v1.2.3"),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cmd := commandSaveTar(tt.tag, tt.tarPath)
+			if !reflect.DeepEqual(cmd.String(), tt.want.String()) {
+				t.Errorf("commandSaveTar() = %v, want %v", cmd, tt.want)
+			}
+		})
+	}
+}
