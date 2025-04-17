@@ -112,6 +112,9 @@ type (
 		BaseImageRegistry string  // Docker registry to pull base image
 		BaseImageUsername string  // Docker registry username to pull base image
 		BaseImagePassword string  // Docker registry password to pull base image
+		PushOnly          bool    // Push only mode, skips build process
+		SourceTarPath     string  // Path to Docker image tar file to load and push
+		TarPath           string  // Path to save Docker image as tar file
 	}
 
 	Card []struct {
@@ -349,6 +352,11 @@ func (p Plugin) Exec() error {
 		}()
 	}
 
+	// Handle push-only mode if requested
+	if p.PushOnly {
+		return p.pushOnly()
+	}
+
 	// add proxy build args
 	addProxyBuildArgs(&p.Build)
 
@@ -358,7 +366,7 @@ func (p Plugin) Exec() error {
 	cmds = append(cmds, commandInfo())    // docker info
 
 	// Command to build, tag and push
-	cmds = append(cmds, commandBuildx(p.Build, p.Builder, p.Dryrun, p.MetadataFile)) // docker build
+	cmds = append(cmds, commandBuildx(p.Build, p.Builder, p.Dryrun, p.MetadataFile, p.TarPath)) // docker build
 
 	// execute all commands in batch mode.
 	for _, cmd := range cmds {
@@ -407,6 +415,38 @@ func (p Plugin) Exec() error {
 			fmt.Printf("Could not remove image %s. Ignoring...\n", cmd.Args[2])
 		} else if err != nil {
 			return err
+		}
+	}
+
+	if p.TarPath != "" && p.Dryrun {
+		if len(p.Build.Tags) > 0 {
+			tag := p.Build.Tags[0]
+			fullImageName := fmt.Sprintf("%s:%s", p.Build.Repo, tag)
+
+			if !imageExists(fullImageName) {
+				return fmt.Errorf("error: image %s not found in local daemon, cannot save to tar", fullImageName)
+			}
+
+			// Make sure the directory exists
+			dir := filepath.Dir(p.TarPath)
+			if err := os.MkdirAll(dir, 0755); err != nil {
+				return fmt.Errorf("error: failed to create directory for tar file: %v", err)
+			}
+
+			// Save the image
+			fmt.Println("Saving image to tar:", p.TarPath)
+			saveCmd := commandSaveTar(fullImageName, p.TarPath)
+			saveCmd.Stdout = os.Stdout
+			saveCmd.Stderr = os.Stderr
+			trace(saveCmd)
+
+			if err := saveCmd.Run(); err != nil {
+				return fmt.Errorf("error: failed to save image to tar: %v", err)
+			}
+
+			fmt.Printf("Successfully saved image to %s\n", p.TarPath)
+		} else {
+			return fmt.Errorf("error: cannot save image to tar, no tags specified")
 		}
 	}
 
@@ -559,7 +599,7 @@ func commandInfo() *exec.Cmd {
 }
 
 // helper function to create the docker buildx command.
-func commandBuildx(build Build, builder Builder, dryrun bool, metadataFile string) *exec.Cmd {
+func commandBuildx(build Build, builder Builder, dryrun bool, metadataFile string, tarPath string) *exec.Cmd {
 	args := []string{
 		"buildx",
 		"build",
@@ -576,7 +616,7 @@ func commandBuildx(build Build, builder Builder, dryrun bool, metadataFile strin
 		args = append(args, "-t", fmt.Sprintf("%s:%s", build.Repo, t))
 	}
 	if dryrun {
-		if build.BuildxLoad {
+		if build.BuildxLoad || tarPath != "" {
 			args = append(args, "--load")
 		}
 	} else {
@@ -882,6 +922,28 @@ func commandLoad() *exec.Cmd {
 	return exec.Command(dockerExe, "image", "load")
 }
 
+func commandLoadTar(tarPath string) *exec.Cmd {
+	return exec.Command(dockerExe, "load", "-i", tarPath)
+}
+
+func commandSaveTar(tag string, tarPath string) *exec.Cmd {
+	return exec.Command(dockerExe, "save", "-o", tarPath, tag)
+}
+
+func imageExists(tag string) bool {
+	cmd := exec.Command(dockerExe, "image", "inspect", tag)
+	return cmd.Run() == nil
+}
+
+func getDigestAfterPush(tag string) (string, error) {
+	cmd := exec.Command(dockerExe, "inspect", "--format", "{{ index (split (index .RepoDigests 0) \"@\") 1 }}", tag)
+	output, err := cmd.Output()
+	if err != nil {
+		return "", fmt.Errorf("failed to get digest for %s: %w", tag, err)
+	}
+	return strings.TrimSpace(string(output)), nil
+}
+
 func writeSSHPrivateKey(key string) (path string, err error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
@@ -912,4 +974,86 @@ func updateImageVersion(driverOpts *[]string, version string) {
 			(*driverOpts)[i] = fmt.Sprintf("image=%s", version)
 		}
 	}
+}
+
+// pushOnly handles pushing images without building them
+func (p Plugin) pushOnly() error {
+	// If source tar path is provided, load the image first
+	if p.SourceTarPath != "" {
+		fileInfo, err := os.Stat(p.SourceTarPath)
+		if err != nil {
+			if os.IsNotExist(err) {
+				return fmt.Errorf("source image tar file %s does not exist", p.SourceTarPath)
+			}
+			return fmt.Errorf("failed to access source image tar file: %w", err)
+		}
+
+		if !fileInfo.Mode().IsRegular() {
+			return fmt.Errorf("source image tar %s is not a regular file", p.SourceTarPath)
+		}
+
+		fmt.Println("Loading image from tar:", p.SourceTarPath)
+		loadCmd := commandLoadTar(p.SourceTarPath)
+		loadCmd.Stdout = os.Stdout
+		loadCmd.Stderr = os.Stderr
+		trace(loadCmd)
+		if err := loadCmd.Run(); err != nil {
+			return fmt.Errorf("failed to load image from tar: %w", err)
+		}
+	}
+
+	// For each tag, verify image exists and push
+	var digest string
+	for _, tag := range p.Build.Tags {
+		fullImageName := fmt.Sprintf("%s:%s", p.Build.Repo, tag)
+
+		// Check if image exists in local daemon
+		if !imageExists(fullImageName) {
+			return fmt.Errorf("image %s not found, cannot push", fullImageName)
+		}
+
+		// Push image
+		fmt.Println("Pushing image:", fullImageName)
+		pushCmd := commandPush(p.Build, tag)
+		pushCmd.Stdout = os.Stdout
+		pushCmd.Stderr = os.Stderr
+		trace(pushCmd)
+		if err := pushCmd.Run(); err != nil {
+			return fmt.Errorf("failed to push image %s: %w", fullImageName, err)
+		}
+
+		// Get the digest after push (we only need one)
+		if digest == "" {
+			d, err := getDigestAfterPush(fullImageName)
+			if err == nil {
+				digest = d
+			} else {
+				fmt.Printf("Warning: Could not get digest for %s: %v\n", fullImageName, err)
+			}
+		}
+	}
+
+	// Output the adaptive card
+	if p.Builder.Driver == defaultDriver {
+		if err := p.writeCard(); err != nil {
+			fmt.Printf("Could not create adaptive card. %s\n", err)
+		}
+	}
+
+	// Write to artifact file
+	if p.ArtifactFile != "" && digest != "" {
+		if err := drone.WritePluginArtifactFile(
+			p.Daemon.RegistryType,
+			p.ArtifactFile,
+			p.Daemon.ArtifactRegistry,
+			p.Build.Repo,
+			digest,
+			p.Build.Tags,
+		); err != nil {
+			fmt.Printf("Failed to write plugin artifact file at path: %s with error: %s\n",
+				p.ArtifactFile, err)
+		}
+	}
+
+	return nil
 }
