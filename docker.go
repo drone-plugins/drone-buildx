@@ -423,34 +423,30 @@ func (p Plugin) Exec() error {
 			tag := p.Build.Tags[0]
 			fullImageName := fmt.Sprintf("%s:%s", p.Build.Repo, tag)
 
-			if !p.Build.BuildxLoad {
-				fmt.Printf("Warning: To save images to tar, 'load' must be enabled. Adding the '--load' flag automatically.\n")
-				p.Build.BuildxLoad = true
-			}
-
 			if !imageExists(fullImageName) {
-				fmt.Printf("Warning: Image %s not found in local daemon, cannot save to tar\n", fullImageName)
-			} else {
-				dir := filepath.Dir(p.TarPath)
-				if err := os.MkdirAll(dir, 0755); err != nil {
-					fmt.Printf("Warning: Failed to create directory for tar file: %v\n", err)
-				}
-
-				// Save the image
-				fmt.Println("Saving image to tar:", p.TarPath)
-				saveCmd := commandSaveTar(fullImageName, p.TarPath)
-				saveCmd.Stdout = os.Stdout
-				saveCmd.Stderr = os.Stderr
-				trace(saveCmd)
-
-				if err := saveCmd.Run(); err != nil {
-					fmt.Printf("Warning: Failed to save image to tar: %v\n", err)
-				} else {
-					fmt.Printf("Successfully saved image to %s\n", p.TarPath)
-				}
+				return fmt.Errorf("error: image %s not found in local daemon, cannot save to tar", fullImageName)
 			}
+
+			// Make sure the directory exists
+			dir := filepath.Dir(p.TarPath)
+			if err := os.MkdirAll(dir, 0755); err != nil {
+				return fmt.Errorf("error: failed to create directory for tar file: %v", err)
+			}
+
+			// Save the image
+			fmt.Println("Saving image to tar:", p.TarPath)
+			saveCmd := commandSaveTar(fullImageName, p.TarPath)
+			saveCmd.Stdout = os.Stdout
+			saveCmd.Stderr = os.Stderr
+			trace(saveCmd)
+
+			if err := saveCmd.Run(); err != nil {
+				return fmt.Errorf("error: failed to save image to tar: %v", err)
+			}
+
+			fmt.Printf("Successfully saved image to %s\n", p.TarPath)
 		} else {
-			fmt.Println("Warning: Cannot save image to tar, no tags specified")
+			return fmt.Errorf("error: cannot save image to tar, no tags specified")
 		}
 	}
 
@@ -984,6 +980,18 @@ func updateImageVersion(driverOpts *[]string, version string) {
 func (p Plugin) pushOnly() error {
 	// If source tar path is provided, load the image first
 	if p.SourceTarPath != "" {
+		fileInfo, err := os.Stat(p.SourceTarPath)
+		if err != nil {
+			if os.IsNotExist(err) {
+				return fmt.Errorf("source image tar file %s does not exist", p.SourceTarPath)
+			}
+			return fmt.Errorf("failed to access source image tar file: %w", err)
+		}
+
+		if !fileInfo.Mode().IsRegular() {
+			return fmt.Errorf("source image tar %s is not a regular file", p.SourceTarPath)
+		}
+
 		fmt.Println("Loading image from tar:", p.SourceTarPath)
 		loadCmd := commandLoadTar(p.SourceTarPath)
 		loadCmd.Stdout = os.Stdout
