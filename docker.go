@@ -1055,21 +1055,5 @@ func (p Plugin) pushOnly() error {
 		}
 	}
 
-	var cmds []*exec.Cmd
-	// execute cleanup routines in batch mode
-	if p.Cleanup {
-		// clear the slice
-		cmds = nil
-
-		cmds = append(cmds, commandRmi(p.Build.Name)) // docker rmi
-		cmds = append(cmds, commandPrune())           // docker system prune -f
-
-		for _, cmd := range cmds {
-			cmd.Stdout = os.Stdout
-			cmd.Stderr = os.Stderr
-			trace(cmd)
-		}
-	}
-
 	return nil
 }
