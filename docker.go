@@ -1051,7 +1051,7 @@ func (p Plugin) pushOnly() error {
 			} else {
 				// Tag the source image with the target name
 				fmt.Printf("Tagging %s as %s\n", sourceFullImageName, targetFullImageName)
-				tagCmd := commandTag(Build{Name: sourceFullImageName}, targetFullImageName)
+				tagCmd := exec.Command(dockerExe, "tag", sourceFullImageName, targetFullImageName)
 				tagCmd.Stdout = os.Stdout
 				tagCmd.Stderr = os.Stderr
 				trace(tagCmd)
