@@ -115,6 +115,7 @@ type (
 		PushOnly          bool    // Push only mode, skips build process
 		SourceTarPath     string  // Path to Docker image tar file to load and push
 		TarPath           string  // Path to save Docker image as tar file
+		SourceImage       string  // Source image to push (optional)
 	}
 
 	Card []struct {
@@ -1002,8 +1003,68 @@ func (p Plugin) pushOnly() error {
 		}
 	}
 
-	// For each tag, verify image exists and push
+	// Check if source image is specified
+	sourceImageName := p.SourceImage
+	var sourceTags []string
+
+	if sourceImageName == "" {
+		// If no source image specified, use the repo (original behavior)
+		sourceImageName = p.Build.Repo
+		sourceTags = p.Build.Tags
+	} else {
+		// If source image is specified, check if it has a tag
+		parts := strings.Split(sourceImageName, ":")
+		if len(parts) > 1 {
+			sourceImageName = parts[0]
+			sourceTags = []string{parts[1]}
+		} else {
+			// Default to "latest" if no tag specified
+			sourceTags = []string{"latest"}
+		}
+		fmt.Printf("Using source image: %s with tag(s): %s\n", sourceImageName, strings.Join(sourceTags, ", "))
+	}
+
+	// For each source tag and target tag combination
 	var digest string
+	taggedForPush := make(map[string]bool)
+
+	for _, sourceTag := range sourceTags {
+		sourceFullImageName := fmt.Sprintf("%s:%s", sourceImageName, sourceTag)
+
+		// Check if the source image exists in local daemon
+		if !imageExists(sourceFullImageName) {
+			fmt.Printf("Warning: Source image %s not found\n", sourceFullImageName)
+			// Continue to the next source tag if available, otherwise return error
+			if len(sourceTags) > 1 {
+				continue
+			}
+			return fmt.Errorf("source image %s not found, cannot push", sourceFullImageName)
+		}
+
+		// For each target tag, tag and push
+		for _, targetTag := range p.Build.Tags {
+			targetFullImageName := fmt.Sprintf("%s:%s", p.Build.Repo, targetTag)
+
+			// Skip if source and target are identical
+			if sourceFullImageName == targetFullImageName {
+				fmt.Printf("Source and target image names are identical: %s\n", sourceFullImageName)
+			} else {
+				// Tag the source image with the target name
+				fmt.Printf("Tagging %s as %s\n", sourceFullImageName, targetFullImageName)
+				tagCmd := exec.Command(dockerExe, "tag", sourceFullImageName, targetFullImageName)
+				tagCmd.Stdout = os.Stdout
+				tagCmd.Stderr = os.Stderr
+				trace(tagCmd)
+				if err := tagCmd.Run(); err != nil {
+					return fmt.Errorf("failed to tag image %s as %s: %w", sourceFullImageName, targetFullImageName, err)
+				}
+			}
+
+			taggedForPush[targetFullImageName] = true
+		}
+	}
+
+	// Push all successfully tagged images
 	for _, tag := range p.Build.Tags {
 		fullImageName := fmt.Sprintf("%s:%s", p.Build.Repo, tag)
 

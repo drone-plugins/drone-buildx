@@ -417,8 +417,13 @@ func Run() {
 		},
 		cli.BoolFlag{
 			Name:   "push-only",
-			Usage:  "push only mode, skips build process",
+			Usage:  "skip build and only push images",
 			EnvVar: "PLUGIN_PUSH_ONLY",
+		},
+		cli.StringFlag{
+			Name:   "source-image",
+			Usage:  "source image to tag and push (format: repo:tag)",
+			EnvVar: "PLUGIN_SOURCE_IMAGE",
 		},
 		cli.StringFlag{
 			Name:   "source-tar-path",
@@ -526,6 +531,7 @@ func run(c *cli.Context) error {
 		BaseImageUsername: c.String("docker.baseimageusername"),
 		BaseImagePassword: c.String("docker.baseimagepassword"),
 		PushOnly:          c.Bool("push-only"),
+		SourceImage:       c.String("source-image"),
 		SourceTarPath:     c.String("source-tar-path"),
 		TarPath:           c.String("tar-path"),
 	}
