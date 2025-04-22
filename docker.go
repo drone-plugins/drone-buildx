@@ -1068,7 +1068,7 @@ func (p Plugin) pushOnly() error {
 	for _, tag := range p.Build.Tags {
 		fullImageName := fmt.Sprintf("%s:%s", p.Build.Repo, tag)
 
-		// Verify the image exists (it should since we just tagged it)
+		// Check if image exists in local daemon
 		if !imageExists(fullImageName) {
 			return fmt.Errorf("image %s not found, cannot push", fullImageName)
 		}
