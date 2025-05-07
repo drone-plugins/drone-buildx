@@ -207,6 +207,32 @@ func TestCommandBuildx(t *testing.T) {
 				"--metadata-file /tmp/metadata.json",
 			),
 		},
+		{
+			name: "buildx options with semicolon delimiter",
+			build: Build{
+				Name:                 "plugins/drone-docker:latest",
+				Dockerfile:           "Dockerfile",
+				Context:              ".",
+				Repo:                 "plugins/drone-docker",
+				Tags:                 []string{"latest"},
+				BuildxOptionsSemicolon: "--platform=linux/amd64,linux/arm64;--provenance=false;--output=type=tar,dest=image.tar",
+			},
+			want: exec.Command(
+				dockerExe,
+				"buildx",
+				"build",
+				"--rm=true",
+				"-f",
+				"Dockerfile",
+				"-t",
+				"plugins/drone-docker:latest",
+				"--push",
+				"--platform=linux/amd64,linux/arm64",
+				"--provenance=false",
+				"--output=type=tar,dest=image.tar",
+				".",
+			),
+		},
 	}
 
 	for _, tc := range tcs {

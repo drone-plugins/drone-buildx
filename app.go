@@ -415,6 +415,11 @@ func Run() {
 			Usage:  "additional options to pass directly to the buildx command",
 			EnvVar: "PLUGIN_BUILDX_OPTIONS",
 		},
+		cli.StringFlag{
+			Name:   "buildx-options-semicolon",
+			Usage:  "additional options to pass directly to the buildx command, separated by semicolons",
+			EnvVar: "PLUGIN_BUILDX_OPTIONS_SEMICOLON",
+		},
 		cli.BoolFlag{
 			Name:   "push-only",
 			Usage:  "skip build and only push images",
@@ -497,6 +502,7 @@ func run(c *cli.Context) error {
 			HarnessSelfHostedS3SecretKey: c.String("harness-self-hosted-s3-secret-key"),
 			HarnessSelfHostedGcpJsonKey:  c.String("harness-self-hosted-gcp-json-key"),
 			BuildxOptions:                c.StringSlice("buildx-options"),
+			BuildxOptionsSemicolon:       c.String("buildx-options-semicolon"),
 		},
 		Daemon: Daemon{
 			Registry:         c.String("docker.registry"),
