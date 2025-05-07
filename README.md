@@ -136,6 +136,15 @@ envVariables:
   PLUGIN_BUILDX_OPTIONS: "--provenance=false, --platform=linux/amd64"
 ```
 
+#### For options with comma values
+
+If you need to pass options that contain commas in their values (like `--output=type=tar,dest=image.tar`), use the PLUGIN_BUILDX_OPTIONS_SEMICOLON environment variable with semicolons (`;`) as separators:
+
+```console
+envVariables:
+  PLUGIN_BUILDX_OPTIONS_SEMICOLON: "--platform=linux/amd64,linux/arm64;--provenance=false;--output=type=tar,dest=image.tar"
+```
+
 ## Developer Notes
 
 - When updating the base image, you will need to update for each architecture and OS.
