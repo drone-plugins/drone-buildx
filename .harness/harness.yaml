@@ -384,7 +384,7 @@ pipeline:
                       identifier: Build_Binary
                       spec:
                         connectorRef: Plugins_Docker_Hub_Connector
-                        image: golang:11.23.0
+                        image: golang:1.23.0
                         shell: Sh
                         command: |-
                           # force go modules
