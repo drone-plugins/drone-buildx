@@ -12,7 +12,7 @@ platform:
 
 steps:
   - name: vet
-    image: golang:1.22
+    image: golang:1.23
     commands:
       - go vet ./...
     environment:
@@ -22,7 +22,7 @@ steps:
         path: /go
 
   - name: test
-    image: golang:1.22
+    image: golang:1.23
     commands:
       - go test -cover ./...
     environment:
@@ -55,7 +55,7 @@ platform:
 
 steps:
  - name: go build
-   image: golang:1.22
+   image: golang:1.23
    environment:
      CGO_ENABLED: 0
    commands:
@@ -98,7 +98,7 @@ platform:
 
 steps:
  - name: go build
-   image: golang:1.22
+   image: golang:1.23
    environment:
      CGO_ENABLED: 0
    commands:
@@ -141,7 +141,7 @@ platform:
 
 steps:
  - name: build-push
-   image: golang:1.22
+   image: golang:1.23
    commands:
      - 'go build -v -ldflags "-X main.version=${DRONE_COMMIT_SHA:0:8}" -a -tags netgo -o release/linux/amd64/drone-docker ./cmd/drone-docker'
    environment:
@@ -152,7 +152,7 @@ steps:
          - tag
 
  - name: build-tag
-   image: golang:1.22
+   image: golang:1.23
    commands:
      - 'go build -v -ldflags "-X main.version=${DRONE_TAG##v}" -a -tags netgo -o release/linux/amd64/drone-docker ./cmd/drone-docker'
    environment:
@@ -162,7 +162,7 @@ steps:
        - tag
 
  - name: executable
-   image: golang:1.22
+   image: golang:1.23
    commands:
      - ./release/linux/amd64/drone-docker --help
 
@@ -211,7 +211,7 @@ platform:
 
 steps:
  - name: build-push
-   image: golang:1.22
+   image: golang:1.23
    commands:
      - 'go build -v -ldflags "-X main.version=${DRONE_COMMIT_SHA:0:8}" -a -tags netgo -o release/linux/arm64/drone-docker ./cmd/drone-docker'
    environment:
@@ -222,7 +222,7 @@ steps:
          - tag
 
  - name: build-tag
-   image: golang:1.22
+   image: golang:1.23
    commands:
      - 'go build -v -ldflags "-X main.version=${DRONE_TAG##v}" -a -tags netgo -o release/linux/arm64/drone-docker ./cmd/drone-docker'
    environment:
@@ -232,7 +232,7 @@ steps:
        - tag
 
  - name: executable
-   image: golang:1.22
+   image: golang:1.23
    commands:
      - ./release/linux/arm64/drone-docker --help
 
@@ -316,7 +316,7 @@ platform:
 
 steps:
  - name: build-push
-   image: golang:1.22
+   image: golang:1.23
    commands:
      - 'go build -v -ldflags "-X main.version=${DRONE_COMMIT_SHA:0:8}" -a -tags netgo -o release/linux/amd64/drone-heroku ./cmd/drone-heroku'
    environment:
@@ -326,7 +326,7 @@ steps:
        exclude:
          - tag
  - name: build-tag
-   image: golang:1.22
+   image: golang:1.23
    commands:
      - 'go build -v -ldflags "-X main.version=${DRONE_TAG##v}" -a -tags netgo -o release/linux/amd64/drone-heroku ./cmd/drone-heroku'
    environment:
@@ -380,7 +380,7 @@ platform:
 
 steps:
  - name: build-push
-   image: golang:1.22
+   image: golang:1.23
    commands:
      - 'go build -v -ldflags "-X main.version=${DRONE_COMMIT_SHA:0:8}" -a -tags netgo -o release/linux/arm64/drone-heroku ./cmd/drone-heroku'
    environment:
@@ -390,7 +390,7 @@ steps:
        exclude:
          - tag
  - name: build-tag
-   image: golang:1.22
+   image: golang:1.23
    commands:
      - 'go build -v -ldflags "-X main.version=${DRONE_TAG##v}" -a -tags netgo -o release/linux/arm64/drone-heroku ./cmd/drone-heroku'
    environment:
@@ -475,7 +475,7 @@ pool:
 steps:
   - name: build
     pull: always
-    image: golang:1.22
+    image: golang:1.23
     commands:
       - GOOS=linux   GOARCH=amd64   go build -ldflags "-s -w" -a -tags netgo -o release/drone-buildx-linux-amd64 ./cmd/drone-docker
       - GOOS=linux   GOARCH=arm64   go build -ldflags "-s -w" -a -tags netgo -o release/drone-buildx-linux-arm64 ./cmd/drone-docker
