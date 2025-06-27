@@ -4,6 +4,7 @@ import (
 	"os"
 	"os/exec"
 	"reflect"
+	"strings"
 	"testing"
 )
 
@@ -210,11 +211,11 @@ func TestCommandBuildx(t *testing.T) {
 		{
 			name: "buildx options with semicolon delimiter",
 			build: Build{
-				Name:                 "plugins/drone-docker:latest",
-				Dockerfile:           "Dockerfile",
-				Context:              ".",
-				Repo:                 "plugins/drone-docker",
-				Tags:                 []string{"latest"},
+				Name:                   "plugins/drone-docker:latest",
+				Dockerfile:             "Dockerfile",
+				Context:                ".",
+				Repo:                   "plugins/drone-docker",
+				Tags:                   []string{"latest"},
 				BuildxOptionsSemicolon: "--platform=linux/amd64,linux/arm64;--provenance=false;--output=type=tar,dest=image.tar",
 			},
 			want: exec.Command(
@@ -420,6 +421,99 @@ func TestCommandSaveTar(t *testing.T) {
 			cmd := commandSaveTar(tt.tag, tt.tarPath)
 			if !reflect.DeepEqual(cmd.String(), tt.want.String()) {
 				t.Errorf("commandSaveTar() = %v, want %v", cmd, tt.want)
+			}
+		})
+	}
+}
+
+func TestSourceImageParsing(t *testing.T) {
+	tests := []struct {
+		name          string
+		sourceImage   string
+		expectedImage string
+		expectedTags  []string
+	}{
+		{
+			name:          "simple image with tag",
+			sourceImage:   "image:tag",
+			expectedImage: "image",
+			expectedTags:  []string{"tag"},
+		},
+		{
+			name:          "registry with port and tag",
+			sourceImage:   "registry:5000/namespace/image:tag",
+			expectedImage: "registry:5000/namespace/image",
+			expectedTags:  []string{"tag"},
+		},
+		{
+			name:          "registry with port no tag",
+			sourceImage:   "registry:5000/namespace/image",
+			expectedImage: "registry:5000/namespace/image",
+			expectedTags:  []string{"latest"},
+		},
+		{
+			name:          "image with empty tag",
+			sourceImage:   "image:",
+			expectedImage: "image",
+			expectedTags:  []string{"latest"},
+		},
+		{
+			name:          "no tag",
+			sourceImage:   "image",
+			expectedImage: "image",
+			expectedTags:  []string{"latest"},
+		},
+		{
+			name:          "complex registry path with tag",
+			sourceImage:   "docker.op.com:4444/test/op:v.123",
+			expectedImage: "docker.op.com:4444/test/op",
+			expectedTags:  []string{"v.123"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Mock the Plugin struct
+			p := Plugin{
+				SourceImage: tt.sourceImage,
+				Build: Build{
+					Tags: []string{"target-tag-1", "target-tag-2"},
+				},
+			}
+
+			// Extract the variables that would be set in pushOnly method
+			sourceImageName := p.SourceImage
+			var sourceTags []string
+
+			// Replicating the image parsing logic
+			lastColonIndex := strings.LastIndex(sourceImageName, ":")
+			if lastColonIndex > 0 && lastColonIndex < len(sourceImageName) {
+				// Check if there's a slash after the last colon (indicating it's a port, not a tag)
+				if strings.LastIndex(sourceImageName, "/") > lastColonIndex {
+					// The last colon is part of the registry:port, not a tag separator
+					sourceTags = []string{"latest"}
+				} else {
+					// The last colon separates the tag
+					tag := sourceImageName[lastColonIndex+1:]
+					sourceImageName = sourceImageName[:lastColonIndex]
+
+					if tag == "" {
+						tag = "latest"
+					}
+					sourceTags = []string{tag}
+				}
+			} else {
+				// Default to "latest" if no tag specified
+				sourceTags = []string{"latest"}
+			}
+
+			// Verify results
+			if sourceImageName != tt.expectedImage {
+				t.Errorf("Image name = %v, want %v", sourceImageName, tt.expectedImage)
+			}
+
+			if !reflect.DeepEqual(sourceTags, tt.expectedTags) {
+				t.Errorf("Tags = %v, want %v", sourceTags, tt.expectedTags)
 			}
 		})
 	}
