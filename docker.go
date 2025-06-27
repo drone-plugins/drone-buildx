@@ -1022,10 +1022,25 @@ func (p Plugin) pushOnly() error {
 		sourceTags = p.Build.Tags
 	} else {
 		// If source image is specified, check if it has a tag
-		parts := strings.Split(sourceImageName, ":")
-		if len(parts) > 1 {
-			sourceImageName = parts[0]
-			sourceTags = []string{parts[1]}
+		lastColonIndex := strings.LastIndex(sourceImageName, ":")
+		if lastColonIndex > 0 && lastColonIndex < len(sourceImageName) {
+			// Check if there's a slash after the last colon (indicating it's a port, not a tag)
+			// For example: registry:5000/image (has slash after colon - port not tag)
+			// vs image:tag (no slash after colon - it's a tag)
+			if strings.LastIndex(sourceImageName, "/") > lastColonIndex {
+				// The last colon is part of the registry:port, not a tag separator
+				sourceTags = []string{"latest"}
+			} else {
+				// The last colon separates the tag
+				tag := sourceImageName[lastColonIndex+1:]
+				sourceImageName = sourceImageName[:lastColonIndex]
+				
+				if tag == "" {
+					fmt.Printf("No tag specified in source image (or empty tag). Using 'latest' as the default tag.\n")
+					tag = "latest"
+				}
+				sourceTags = []string{tag}
+			}
 		} else {
 			// Default to "latest" if no tag specified
 			sourceTags = []string{"latest"}
