@@ -227,6 +227,9 @@ func (p Plugin) Exec() error {
 			return fmt.Errorf("Error authenticating base connector: exit status 1")
 		}
 
+	} else {
+		fmt.Println("\033[33mTo ensure consistent and reliable pipeline execution, we recommend setting up a Base Image Connector.\033[0m\n" +
+			"\033[33mWhile optional at this time, configuring it helps prevent failures caused by Docker Hub's rate limits.\033[0m")
 	}
 	// login to the Docker registry
 	if p.Login.Password != "" {
@@ -1034,7 +1037,7 @@ func (p Plugin) pushOnly() error {
 				// The last colon separates the tag
 				tag := sourceImageName[lastColonIndex+1:]
 				sourceImageName = sourceImageName[:lastColonIndex]
-				
+
 				if tag == "" {
 					fmt.Printf("No tag specified in source image (or empty tag). Using 'latest' as the default tag.\n")
 					tag = "latest"
