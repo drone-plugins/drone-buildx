@@ -75,6 +75,7 @@ type (
 		Pull                         bool     // Docker build pull
 		CacheFrom                    []string // Docker buildx cache-from
 		CacheTo                      []string // Docker buildx cache-to
+		PathStyle                    bool     // Docker buildx path-style for s3 DLC
 		Compress                     bool     // Docker build compress
 		Repo                         string   // Docker build repository
 		LabelSchema                  []string // label-schema Label map
@@ -756,6 +757,16 @@ func sanitizeCacheCommand(build *Build) {
 					arg = strings.Replace(arg, "gcp_json_key=harness_placeholder_gcp_creds", "", 1)
 				}
 			}
+
+			if build.PathStyle && strings.Contains(arg, "type=s3") {
+				if strings.Contains(arg, "use_path_style=false") {
+					arg = strings.Replace(arg, "use_path_style=false", "use_path_style=true", 1)
+				} else if !strings.Contains(arg, "use_path_style=") {
+					// Add use_path_style=true, assuming comma-delimited key=val pairs
+					arg = arg + ",use_path_style=true"
+				}
+			}
+
 
 			// Update the argument
 			args[i] = arg

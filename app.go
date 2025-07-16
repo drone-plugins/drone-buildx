@@ -180,6 +180,11 @@ func Run() {
 			EnvVar: "PLUGIN_CACHE_TO",
 			Value:  new(CustomStringSliceFlag),
 		},
+		&cli.BoolFlag{
+			Name:    "path-style",
+			Usage:   "Allows you to enable the client to use path-style addressing, i.e., https://s3.amazonaws.com/BUCKET/KEY. By default, the S3 client will use virtual hosted bucket addressing when possible(https://BUCKET.s3.amazonaws.com/KEY).",
+			EnvVar:  "PLUGIN_PATH_STYLE,AWS_PLUGIN_PATH_STYLE",
+		},
 		cli.BoolFlag{
 			Name:   "squash",
 			Usage:  "squash the layers at build time",
@@ -483,6 +488,7 @@ func run(c *cli.Context) error {
 			Pull:                         c.BoolT("pull-image"),
 			CacheFrom:                    c.Generic("cache-from").(*CustomStringSliceFlag).GetValue(),
 			CacheTo:                      c.Generic("cache-to").(*CustomStringSliceFlag).GetValue(),
+			PathStyle:                    c.Bool("path-style"),
 			Compress:                     c.Bool("compress"),
 			Repo:                         c.String("repo"),
 			Labels:                       c.StringSlice("custom-labels"),
