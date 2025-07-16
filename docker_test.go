@@ -326,14 +326,14 @@ func TestSanitizeCacheCommand(t *testing.T) {
 			expectedCacheTo:   []string{},
 		},
 		{
-			name: "Replace use_path_style=false with true when Pathstyle is true",
+			name: "Leave use_path_style=false untouched when Pathstyle is true",
 			build: Build{
 				CacheFrom: []string{"type=s3,bucket=my-bucket,use_path_style=false"},
 				CacheTo:   []string{"type=s3,use_path_style=false"},
 				PathStyle: true,
 			},
-			expectedCacheFrom: []string{"type=s3,bucket=my-bucket,use_path_style=true"},
-			expectedCacheTo:   []string{"type=s3,use_path_style=true"},
+			expectedCacheFrom: []string{"type=s3,bucket=my-bucket,use_path_style=false"},
+			expectedCacheTo:   []string{"type=s3,use_path_style=false"},
 		},
 		{
 			name: "Leave use_path_style=true untouched when already correct",

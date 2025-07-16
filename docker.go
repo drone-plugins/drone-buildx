@@ -760,7 +760,7 @@ func sanitizeCacheCommand(build *Build) {
 
 			if build.PathStyle && strings.Contains(arg, "type=s3") {
 				if strings.Contains(arg, "use_path_style=false") {
-					arg = strings.Replace(arg, "use_path_style=false", "use_path_style=true", 1)
+					fmt.Printf("use_path_style is set to false in cache-from or cache-to but env var PLUGIN_PATH_STYLE is true\n")
 				} else if !strings.Contains(arg, "use_path_style=") {
 					// Add use_path_style=true, assuming comma-delimited key=val pairs
 					arg = arg + ",use_path_style=true"
