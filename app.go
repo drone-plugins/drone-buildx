@@ -181,9 +181,9 @@ func Run() {
 			Value:  new(CustomStringSliceFlag),
 		},
 		&cli.BoolFlag{
-			Name:    "path-style",
-			Usage:   "Allows you to enable the client to use path-style addressing, i.e., https://s3.amazonaws.com/BUCKET/KEY. By default, the S3 client will use virtual hosted bucket addressing when possible(https://BUCKET.s3.amazonaws.com/KEY).",
-			EnvVar:  "PLUGIN_PATH_STYLE,AWS_PLUGIN_PATH_STYLE",
+			Name:   "path-style",
+			Usage:  "Allows you to enable the client to use path-style addressing, i.e., https://s3.amazonaws.com/BUCKET/KEY. By default, the S3 client will use virtual hosted bucket addressing when possible(https://BUCKET.s3.amazonaws.com/KEY).",
+			EnvVar: "PLUGIN_PATH_STYLE,AWS_PLUGIN_PATH_STYLE",
 		},
 		cli.BoolFlag{
 			Name:   "squash",

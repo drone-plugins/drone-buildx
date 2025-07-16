@@ -767,7 +767,6 @@ func sanitizeCacheCommand(build *Build) {
 				}
 			}
 
-
 			// Update the argument
 			args[i] = arg
 		}

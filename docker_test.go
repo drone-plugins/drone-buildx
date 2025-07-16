@@ -316,21 +316,21 @@ func TestSanitizeCacheCommand(t *testing.T) {
 			expectedCacheTo:   []string{},
 		},
 		{
-		name: "Add use_path_style=true if not present and Pathstyle is true",
-		build: Build{
-			CacheFrom:  []string{"type=s3,bucket=my-bucket"},
-			CacheTo:    []string{},
-			PathStyle:  true,
-		},
-		expectedCacheFrom: []string{"type=s3,bucket=my-bucket,use_path_style=true"},
-		expectedCacheTo:   []string{},
+			name: "Add use_path_style=true if not present and Pathstyle is true",
+			build: Build{
+				CacheFrom: []string{"type=s3,bucket=my-bucket"},
+				CacheTo:   []string{},
+				PathStyle: true,
+			},
+			expectedCacheFrom: []string{"type=s3,bucket=my-bucket,use_path_style=true"},
+			expectedCacheTo:   []string{},
 		},
 		{
 			name: "Replace use_path_style=false with true when Pathstyle is true",
 			build: Build{
-				CacheFrom:  []string{"type=s3,bucket=my-bucket,use_path_style=false"},
-				CacheTo:    []string{"type=s3,use_path_style=false"},
-				PathStyle:  true,
+				CacheFrom: []string{"type=s3,bucket=my-bucket,use_path_style=false"},
+				CacheTo:   []string{"type=s3,use_path_style=false"},
+				PathStyle: true,
 			},
 			expectedCacheFrom: []string{"type=s3,bucket=my-bucket,use_path_style=true"},
 			expectedCacheTo:   []string{"type=s3,use_path_style=true"},
@@ -338,9 +338,9 @@ func TestSanitizeCacheCommand(t *testing.T) {
 		{
 			name: "Leave use_path_style=true untouched when already correct",
 			build: Build{
-				CacheFrom:  []string{"type=s3,use_path_style=true"},
-				CacheTo:    []string{},
-				PathStyle:  true,
+				CacheFrom: []string{"type=s3,use_path_style=true"},
+				CacheTo:   []string{},
+				PathStyle: true,
 			},
 			expectedCacheFrom: []string{"type=s3,use_path_style=true"},
 			expectedCacheTo:   []string{},
@@ -348,9 +348,9 @@ func TestSanitizeCacheCommand(t *testing.T) {
 		{
 			name: "Don't modify if not type=s3 even when Pathstyle is true",
 			build: Build{
-				CacheFrom:  []string{"type=gcs,bucket=test"},
-				CacheTo:    []string{"type=local"},
-				PathStyle:  true,
+				CacheFrom: []string{"type=gcs,bucket=test"},
+				CacheTo:   []string{"type=local"},
+				PathStyle: true,
 			},
 			expectedCacheFrom: []string{"type=gcs,bucket=test"},
 			expectedCacheTo:   []string{"type=local"},
@@ -358,9 +358,9 @@ func TestSanitizeCacheCommand(t *testing.T) {
 		{
 			name: "Don't add use_path_style when Pathstyle is false",
 			build: Build{
-				CacheFrom:  []string{"type=s3,bucket=my-bucket"},
-				CacheTo:    []string{},
-				PathStyle:  false,
+				CacheFrom: []string{"type=s3,bucket=my-bucket"},
+				CacheTo:   []string{},
+				PathStyle: false,
 			},
 			expectedCacheFrom: []string{"type=s3,bucket=my-bucket"},
 			expectedCacheTo:   []string{},
