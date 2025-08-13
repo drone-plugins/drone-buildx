@@ -518,6 +518,9 @@ pipeline:
                         condition: <+codebase.build.type> == "branch"
               buildIntelligence:
                 enabled: false
+            when:
+              pipelineStatus: Success
+              condition: "false"
     - parallel:
         - stage:
             identifier: Manifest
