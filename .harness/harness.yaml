@@ -444,7 +444,6 @@ pipeline:
               - windows-vm
             when:
               pipelineStatus: Success
-              condition: "false"
         - stage:
             identifier: winamd64
             type: CI
@@ -520,7 +519,6 @@ pipeline:
                 enabled: false
             when:
               pipelineStatus: Success
-              condition: "false"
     - parallel:
         - stage:
             identifier: Manifest
@@ -564,7 +562,7 @@ pipeline:
                           GOOS=linux   GOARCH=arm64   go build -ldflags "-s -w" -a -tags netgo -o release/drone-buildx-linux-arm64 ./cmd/drone-docker
                           GOOS=darwin  GOARCH=amd64   go build -ldflags "-s -w" -a -tags netgo -o release/drone-buildx-darwin-amd64 ./cmd/drone-docker
                           GOOS=darwin  GOARCH=arm64   go build -ldflags "-s -w" -a -tags netgo -o release/drone-buildx-darwin-arm64 ./cmd/drone-docker
-                          #GOOS=windows GOARCH=amd64   go build -ldflags "-s -w" -a -tags netgo -o release/drone-buildx-windows-amd64 ./cmd/drone-docker
+                          GOOS=windows GOARCH=amd64   go build -ldflags "-s -w" -a -tags netgo -o release/drone-buildx-windows-amd64 ./cmd/drone-docker
 
                           apt-get update -y
                           apt-get install -y zstd
@@ -572,7 +570,7 @@ pipeline:
                           zstd release/drone-buildx-linux-arm64
                           zstd release/drone-buildx-darwin-arm64
                           zstd release/drone-buildx-darwin-amd64
-                          #zstd release/drone-buildx-windows-amd64
+                          zstd release/drone-buildx-windows-amd64
                         envVariables:
                           CGO_ENABLED: "0"
                           GO111MODULE: "on"
