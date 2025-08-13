@@ -442,6 +442,9 @@ pipeline:
                     os: Windows
             delegateSelectors:
               - windows-vm
+            when:
+              pipelineStatus: Success
+              condition: "false"
         - stage:
             identifier: winamd64
             type: CI
