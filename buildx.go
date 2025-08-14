@@ -2,6 +2,7 @@ package docker
 
 import (
 	"fmt"
+	"os"
 	"os/exec"
 	"strings"
 )
@@ -22,6 +23,15 @@ func cmdSetupBuildx(builder Builder, driverOpts []string) *exec.Cmd {
 	}
 	for _, opt := range driverOpts {
 		args = append(args, "--driver-opt", opt)
+	}
+	if harnessHttpProxy := os.Getenv("HARNESS_HTTP_PROXY"); harnessHttpProxy != "" {
+		args = append(args, "--driver-opt", fmt.Sprintf("env.http_proxy=%s", harnessHttpProxy))
+
+		if harnessHttpsProxy := os.Getenv("HARNESS_HTTPS_PROXY"); harnessHttpsProxy != "" {
+			args = append(args, "--driver-opt", fmt.Sprintf("env.https_proxy=%s", harnessHttpsProxy))
+		}
+
+		args = append(args, "--driver-opt", "network=host")
 	}
 	if builder.RemoteConn != "" && builder.Driver == remoteDriver {
 		args = append(args, builder.RemoteConn)
