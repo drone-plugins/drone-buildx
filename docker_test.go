@@ -378,7 +378,7 @@ func TestSanitizeCacheCommand(t *testing.T) {
 		{
 			name: "Leave tls_insecure_skip_verify=false untouched when CacheTlsInsecure is true",
 			build: Build{
-				CacheFrom:        []string{"type=s3,bucket=my-bucket,use_path_style=false"},
+				CacheFrom:        []string{"type=s3,bucket=my-bucket,tls_insecure_skip_verify=false"},
 				CacheTo:          []string{"type=s3,tls_insecure_skip_verify=false"},
 				CacheTlsInsecure: true,
 			},
