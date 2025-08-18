@@ -75,6 +75,7 @@ type (
 		Pull                         bool     // Docker build pull
 		CacheFrom                    []string // Docker buildx cache-from
 		CacheTo                      []string // Docker buildx cache-to
+		CacheTlsInsecure             bool     // Docker buildx cache-tls-insecure
 		PathStyle                    bool     // Docker buildx path-style for s3 DLC
 		Compress                     bool     // Docker build compress
 		Repo                         string   // Docker build repository
@@ -764,6 +765,15 @@ func sanitizeCacheCommand(build *Build) {
 				} else if !strings.Contains(arg, "use_path_style=") {
 					// Add use_path_style=true, assuming comma-delimited key=val pairs
 					arg = arg + ",use_path_style=true"
+				}
+			}
+
+			if build.CacheTlsInsecure {
+				if strings.Contains(arg, "tls_insecure_skip_verify=false") {
+					fmt.Printf("tls_insecure_skip_verify is set to false in cache-from or cache-to but env var PLUGIN_PATH_STYLE is true\n")
+				} else if !strings.Contains(arg, "tls_insecure_skip_verify=") {
+					// Add use_path_style=true, assuming comma-delimited key=val pairs
+					arg = arg + ",tls_insecure_skip_verify=true"
 				}
 			}
 

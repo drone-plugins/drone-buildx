@@ -365,6 +365,46 @@ func TestSanitizeCacheCommand(t *testing.T) {
 			expectedCacheFrom: []string{"type=s3,bucket=my-bucket"},
 			expectedCacheTo:   []string{},
 		},
+		{
+			name: "Add tls_insecure_skip_verify=true if not present and CacheTlsInsecure is true",
+			build: Build{
+				CacheFrom:        []string{"type=s3,bucket=my-bucket"},
+				CacheTo:          []string{},
+				CacheTlsInsecure: true,
+			},
+			expectedCacheFrom: []string{"type=s3,bucket=my-bucket,tls_insecure_skip_verify=true"},
+			expectedCacheTo:   []string{},
+		},
+		{
+			name: "Leave tls_insecure_skip_verify=false untouched when CacheTlsInsecure is true",
+			build: Build{
+				CacheFrom:        []string{"type=s3,bucket=my-bucket,tls_insecure_skip_verify=false"},
+				CacheTo:          []string{"type=s3,tls_insecure_skip_verify=false"},
+				CacheTlsInsecure: true,
+			},
+			expectedCacheFrom: []string{"type=s3,bucket=my-bucket,tls_insecure_skip_verify=false"},
+			expectedCacheTo:   []string{"type=s3,tls_insecure_skip_verify=false"},
+		},
+		{
+			name: "Leave tls_insecure_skip_verify=true untouched when already correct",
+			build: Build{
+				CacheFrom:        []string{"type=s3,tls_insecure_skip_verify=true"},
+				CacheTo:          []string{},
+				CacheTlsInsecure: true,
+			},
+			expectedCacheFrom: []string{"type=s3,tls_insecure_skip_verify=true"},
+			expectedCacheTo:   []string{},
+		},
+		{
+			name: "Don't add use_path_style when CacheTlsInsecure is false",
+			build: Build{
+				CacheFrom:        []string{"type=s3,bucket=my-bucket"},
+				CacheTo:          []string{},
+				CacheTlsInsecure: false,
+			},
+			expectedCacheFrom: []string{"type=s3,bucket=my-bucket"},
+			expectedCacheTo:   []string{},
+		},
 	}
 
 	for _, tt := range tests {
