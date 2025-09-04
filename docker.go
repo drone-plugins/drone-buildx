@@ -98,6 +98,9 @@ type (
 		HarnessSelfHostedGcpJsonKey  string   // Harness self hosted gcp json region
 		BuildxOptions                []string // Generic buildx options passed directly to the buildx command
 		BuildxOptionsSemicolon       string   // Buildx options separated by semicolons instead of commas
+		// Buildx Bake (opt-in)
+		BakeFile                     string // Buildx Bake definition file (HCL/JSON/Compose). If set, Bake mode is active
+		BakeOptions                  string // Semicolon-delimited Bake options and/or target names
 	}
 
 	// Plugin defines the Docker plugin parameters.
@@ -199,8 +202,18 @@ func (p Plugin) Exec() error {
 		os.MkdirAll(dockerHome, 0600)
 
 		path := filepath.Join(dockerHome, "config.json")
-		err := os.WriteFile(path, []byte(p.Login.Config), 0600)
-		if err != nil {
+		var content []byte
+		// If PLUGIN_CONFIG starts with '/' or './', treat it as a file path
+		if strings.HasPrefix(p.Login.Config, "/") || strings.HasPrefix(p.Login.Config, "./") {
+			data, err := os.ReadFile(p.Login.Config)
+			if err != nil {
+				return fmt.Errorf("Error reading docker config file %s: %s", p.Login.Config, err)
+			}
+			content = data
+		} else {
+			content = []byte(p.Login.Config)
+		}
+		if err := os.WriteFile(path, content, 0600); err != nil {
 			return fmt.Errorf("Error writing config.json: %s", err)
 		}
 	}
@@ -257,7 +270,8 @@ func (p Plugin) Exec() error {
 	}
 
 	// cache export feature is currently not supported for docker driver hence we have to create docker-container driver
-	if len(p.Build.CacheTo) > 0 && (p.Builder.Driver == "" || p.Builder.Driver == defaultDriver) {
+	// NOTE: skip this auto-switch when Bake mode is active
+	if p.Build.BakeFile == "" && len(p.Build.CacheTo) > 0 && (p.Builder.Driver == "" || p.Builder.Driver == defaultDriver) {
 		p.Builder.Driver = dockerContainerDriver
 	}
 
@@ -359,21 +373,38 @@ func (p Plugin) Exec() error {
 		}()
 	}
 
+	// Enforce mutual exclusivity: Bake mode and Push-only mode cannot be used together
+	if p.Build.BakeFile != "" && p.PushOnly {
+		return fmt.Errorf("conflict: Bake mode (PLUGIN_BAKE_FILE) and Push-only mode (PLUGIN_PUSH_ONLY) cannot be used together")
+	}
+
 	// Handle push-only mode if requested
 	if p.PushOnly {
 		return p.pushOnly()
 	}
-
-	// add proxy build args
-	addProxyBuildArgs(&p.Build)
 
 	var cmds []*exec.Cmd
 
 	cmds = append(cmds, commandVersion()) // docker version
 	cmds = append(cmds, commandInfo())    // docker info
 
-	// Command to build, tag and push
-	cmds = append(cmds, commandBuildx(p.Build, p.Builder, p.Dryrun, p.MetadataFile, p.TarPath)) // docker build
+	// Determine execution path: Bake mode vs Classic buildx build
+	if p.Build.BakeFile != "" {
+		// Inform about ignored classic cache settings
+		if len(p.Build.CacheFrom) > 0 || len(p.Build.CacheTo) > 0 || p.Build.NoCache {
+			fmt.Println("Bake mode: ignoring PLUGIN_CACHE_*; define cache in the bake file.")
+		}
+		// Tar export is not applied in Bake mode
+		if p.TarPath != "" {
+			fmt.Println("Bake mode: ignoring PLUGIN_TAR_PATH; define outputs in the bake file.")
+		}
+		// Command to run buildx bake
+		cmds = append(cmds, commandBuildxBake(p.Build, p.Builder, p.Dryrun, p.MetadataFile))
+	} else {
+		// Classic path: add proxy build args and run buildx build
+		addProxyBuildArgs(&p.Build)
+		cmds = append(cmds, commandBuildx(p.Build, p.Builder, p.Dryrun, p.MetadataFile, p.TarPath)) // docker build
+	}
 
 	// execute all commands in batch mode.
 	for _, cmd := range cmds {
@@ -425,7 +456,7 @@ func (p Plugin) Exec() error {
 		}
 	}
 
-	if p.TarPath != "" && p.Dryrun {
+	if p.Build.BakeFile == "" && p.TarPath != "" && p.Dryrun {
 		if len(p.Build.Tags) > 0 {
 			tag := p.Build.Tags[0]
 			fullImageName := fmt.Sprintf("%s:%s", p.Build.Repo, tag)
@@ -457,11 +488,13 @@ func (p Plugin) Exec() error {
 		}
 	}
 
-	// output the adaptive card
-	if p.Builder.Driver == defaultDriver {
+	// output the adaptive card (skipped in Bake mode)
+	if p.Build.BakeFile == "" && p.Builder.Driver == defaultDriver {
 		if err := p.writeCard(); err != nil {
 			fmt.Printf("Could not create adaptive card. %s\n", err)
 		}
+	} else if p.Build.BakeFile != "" {
+		fmt.Println("Bake mode: skipping adaptive card output.")
 	}
 
 	// write to artifact file
@@ -727,6 +760,44 @@ func commandBuildx(build Build, builder Builder, dryrun bool, metadataFile strin
 		}
 	}
 	return exec.Command(dockerExe, args...)
+}
+
+// helper function to create the docker buildx bake command.
+func commandBuildxBake(build Build, builder Builder, dryrun bool, metadataFile string) *exec.Cmd {
+    args := []string{"buildx", "bake"}
+
+    if build.BakeFile != "" {
+        args = append(args, "-f", build.BakeFile)
+    }
+    if builder.Name != "" {
+        args = append(args, "--builder", builder.Name)
+    }
+
+    if dryrun {
+        args = append(args, "--load")
+    } else {
+        args = append(args, "--push")
+    }
+
+    if metadataFile != "" {
+        args = append(args, "--metadata-file", metadataFile)
+    }
+
+    if build.BakeOptions != "" {
+        tokens := strings.Split(build.BakeOptions, ";")
+        for _, t := range tokens {
+            t = strings.TrimSpace(t)
+            if t == "" {
+                continue
+            }
+            if t == "--push" || t == "--load" {
+                continue
+            }
+            args = append(args, t)
+        }
+    }
+
+    return exec.Command(dockerExe, args...)
 }
 
 func sanitizeCacheCommand(build *Build) {

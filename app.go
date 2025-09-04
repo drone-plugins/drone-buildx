@@ -430,6 +430,16 @@ func Run() {
 			Usage:  "additional options to pass directly to the buildx command, separated by semicolons",
 			EnvVar: "PLUGIN_BUILDX_OPTIONS_SEMICOLON",
 		},
+		cli.StringFlag{
+			Name:   "bake-file",
+			Usage:  "Buildx Bake definition file (HCL/JSON/Compose). When set, plugin runs docker buildx bake",
+			EnvVar: "PLUGIN_BAKE_FILE",
+		},
+		cli.StringFlag{
+			Name:   "bake-options",
+			Usage:  "Semicolon-delimited extra bake CLI args and/or target names",
+			EnvVar: "PLUGIN_BAKE_OPTIONS",
+		},
 		cli.BoolFlag{
 			Name:   "push-only",
 			Usage:  "skip build and only push images",
@@ -515,6 +525,8 @@ func run(c *cli.Context) error {
 			HarnessSelfHostedGcpJsonKey:  c.String("harness-self-hosted-gcp-json-key"),
 			BuildxOptions:                c.StringSlice("buildx-options"),
 			BuildxOptionsSemicolon:       c.String("buildx-options-semicolon"),
+			BakeFile:                     c.String("bake-file"),
+			BakeOptions:                  c.String("bake-options"),
 		},
 		Daemon: Daemon{
 			Registry:         c.String("docker.registry"),

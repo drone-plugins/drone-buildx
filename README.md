@@ -145,6 +145,58 @@ envVariables:
   PLUGIN_BUILDX_OPTIONS_SEMICOLON: "--platform=linux/amd64,linux/arm64;--provenance=false;--output=type=tar,dest=image.tar"
 ```
 
+### Buildx Bake mode (opt-in)
+
+Use Docker Buildx Bake when you have a bake file (HCL/JSON/Compose) and want build orchestration across multiple targets and registries.
+
+Inputs:
+- PLUGIN_BAKE_FILE: Path to your bake file. When set, the plugin runs `docker buildx bake` instead of classic `buildx build`.
+- PLUGIN_BAKE_OPTIONS: Semicolon-delimited extra bake CLI args and/or target names. Example: `--progress=plain;web;api` or `--set=*.platform=linux/amd64`.
+
+Behavior:
+- Do not include `--push` or `--load` in PLUGIN_BAKE_OPTIONS. The plugin adds these implicitly:
+  - `--push` when PLUGIN_DRY_RUN=false (default).
+  - `--load` when PLUGIN_DRY_RUN=true.
+- The existing `builder-name` is passed as `--builder` to bake if set.
+- The plugin does not auto-switch the builder driver in Bake mode. If your bake file uses `cache-to` (registry exports), set `PLUGIN_BUILDER_DRIVER=docker-container` explicitly.
+- If PLUGIN_METADATA_FILE is set, it is forwarded to bake as `--metadata-file`.
+- Bake mode ignores classic cache envs (PLUGIN_CACHE_FROM / PLUGIN_CACHE_TO / PLUGIN_NO_CACHE). Define cache in the bake file instead.
+- Bake mode and Push-only mode (PLUGIN_PUSH_ONLY) are mutually exclusive.
+- Classic tar export (PLUGIN_TAR_PATH) is not applied in Bake; define outputs in the bake file.
+
+Examples:
+
+Basic Bake with multi-registry push
+```yaml
+envVariables:
+  PLUGIN_BAKE_FILE: docker-bake.hcl
+  # Either pass a config file path or JSON content for multi-registry auth
+  PLUGIN_CONFIG: /path/to/docker-config.json
+  # PLUGIN_CONFIG: '{"auths":{"docker.io":{"auth":"..."},"ghcr.io":{"auth":"..."}}}'
+```
+
+Bake with specific targets and progress
+```yaml
+envVariables:
+  PLUGIN_BAKE_FILE: docker-bake.hcl
+  PLUGIN_BAKE_OPTIONS: "--progress=plain;web;api"
+```
+
+Bake with platform override
+```yaml
+envVariables:
+  PLUGIN_BAKE_FILE: docker-bake.hcl
+  PLUGIN_BAKE_OPTIONS: "--set=*.platform=linux/amd64"
+```
+
+Bake with metadata output
+```yaml
+envVariables:
+  PLUGIN_BAKE_FILE: docker-bake.hcl
+  PLUGIN_BAKE_OPTIONS: "web"
+  PLUGIN_METADATA_FILE: "/tmp/metadata.json"
+```
+
 ## Developer Notes
 
 - When updating the base image, you will need to update for each architecture and OS.

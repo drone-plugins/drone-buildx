@@ -247,6 +247,99 @@ func TestCommandBuildx(t *testing.T) {
 	}
 }
 
+func TestCommandBuildxBake(t *testing.T) {
+	tcs := []struct {
+		name     string
+		build    Build
+		builder  Builder
+		dryrun   bool
+		metadata string
+		want     *exec.Cmd
+	}{
+		{
+			name: "basic bake with file, push by default",
+			build: Build{
+				BakeFile:    "docker-bake.hcl",
+				BakeOptions: "",
+			},
+			want: exec.Command(
+				dockerExe,
+				"buildx",
+				"bake",
+				"-f",
+				"docker-bake.hcl",
+				"--push",
+			),
+		},
+		{
+			name: "with builder and dryrun -> load",
+			build: Build{
+				BakeFile: "docker-bake.hcl",
+			},
+			builder: Builder{
+				Name: "mybuilder",
+			},
+			dryrun: true,
+			want: exec.Command(
+				dockerExe,
+				"buildx",
+				"bake",
+				"-f",
+				"docker-bake.hcl",
+				"--builder",
+				"mybuilder",
+				"--load",
+			),
+		},
+		{
+			name: "options and targets parsed; ignore push/load in options",
+			build: Build{
+				BakeFile:    "docker-bake.hcl",
+				BakeOptions: "--progress=plain;web;--push;api;--load",
+			},
+			// dryrun false -> plugin adds --push
+			want: exec.Command(
+				dockerExe,
+				"buildx",
+				"bake",
+				"-f",
+				"docker-bake.hcl",
+				"--push",
+				"--progress=plain",
+				"web",
+				"api",
+			),
+		},
+		{
+			name: "with metadata file",
+			build: Build{
+				BakeFile: "docker-bake.hcl",
+			},
+			metadata: "/tmp/meta.json",
+			want: exec.Command(
+				dockerExe,
+				"buildx",
+				"bake",
+				"-f",
+				"docker-bake.hcl",
+				"--push",
+				"--metadata-file",
+				"/tmp/meta.json",
+			),
+		},
+	}
+
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			cmd := commandBuildxBake(tc.build, tc.builder, tc.dryrun, tc.metadata)
+			if !reflect.DeepEqual(cmd.String(), tc.want.String()) {
+				t.Errorf("Got cmd %v, want %v", cmd, tc.want)
+			}
+		})
+	}
+}
+
 func TestSanitizeCacheCommand(t *testing.T) {
 	tests := []struct {
 		name              string
