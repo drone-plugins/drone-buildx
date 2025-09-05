@@ -189,14 +189,6 @@ envVariables:
   PLUGIN_BAKE_OPTIONS: "--set=*.platform=linux/amd64"
 ```
 
-Bake with metadata output
-```yaml
-envVariables:
-  PLUGIN_BAKE_FILE: docker-bake.hcl
-  PLUGIN_BAKE_OPTIONS: "web"
-  PLUGIN_METADATA_FILE: "/tmp/metadata.json"
-```
-
 ## Developer Notes
 
 - When updating the base image, you will need to update for each architecture and OS.
