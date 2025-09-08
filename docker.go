@@ -203,20 +203,21 @@ func (p Plugin) Exec() error {
 
 		path := filepath.Join(dockerHome, "config.json")
 		var content []byte
-		// Check if PLUGIN_CONFIG is a file path by attempting to stat it
-		if _, err := os.Stat(p.Login.Config); err == nil {
-			// File exists, read it
+		// Try to parse as JSON first to determine if it's content or file path
+		var jsonTest interface{}
+		if json.Unmarshal([]byte(p.Login.Config), &jsonTest) == nil {
+			// Valid JSON, treat as content
+			content = []byte(p.Login.Config)
+		} else if _, err := os.Stat(p.Login.Config); err == nil {
+			// Not JSON but file exists, read it
 			data, err := os.ReadFile(p.Login.Config)
 			if err != nil {
-				return fmt.Errorf("Error reading docker config file %s: %s", p.Login.Config, err)
+				return fmt.Errorf("Error reading docker config file '%s': %s", p.Login.Config, err)
 			}
 			content = data
-		} else if os.IsNotExist(err) {
-			// Not a file, treat as JSON content (backward compatible)
-			content = []byte(p.Login.Config)
 		} else {
-			// Some other error (permissions, etc.)
-			return fmt.Errorf("Error checking docker config %s: %s", p.Login.Config, err)
+			// Neither valid JSON nor existing file
+			return fmt.Errorf("Docker config must be either valid JSON content or a path to an existing config file")
 		}
 		if err := os.WriteFile(path, content, 0600); err != nil {
 			return fmt.Errorf("Error writing config.json: %s", err)
