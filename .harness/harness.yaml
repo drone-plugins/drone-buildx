@@ -91,7 +91,7 @@ pipeline:
                       name: Build Tarball
                       identifier: Build_Tarball
                       spec:
-                        connectorRef: account.harnessImage
+                        connectorRef: Plugins_Docker_Hub_Connector
                         image: docker:27.3.1-dind
                         shell: Sh
                         command: sh buildkit/release.sh
@@ -171,7 +171,7 @@ pipeline:
                       name: Build Tarball
                       identifier: Build_Tarball
                       spec:
-                        connectorRef: account.harnessImage
+                        connectorRef: Plugins_Docker_Hub_Connector
                         image: docker:27.3.1-dind
                         shell: Sh
                         command: sh buildkit/release.sh
@@ -251,7 +251,7 @@ pipeline:
                       name: Build Tarball
                       identifier: Build_Tarball
                       spec:
-                        connectorRef: account.harnessImage
+                        connectorRef: Plugins_Docker_Hub_Connector
                         image: docker:27.3.1-dind
                         shell: Sh
                         command: sh buildkit/release.sh
@@ -331,7 +331,7 @@ pipeline:
                       name: Build Tarball
                       identifier: Build_Tarball
                       spec:
-                        connectorRef: account.harnessImage
+                        connectorRef: Plugins_Docker_Hub_Connector
                         image: docker:27.3.1-dind
                         shell: Sh
                         command: sh buildkit/release.sh
