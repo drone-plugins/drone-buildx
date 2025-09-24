@@ -319,7 +319,6 @@ func (p Plugin) Exec() error {
 
 	if p.Builder.Driver != "" && p.Builder.Driver != defaultDriver {
 		var (
-			raw []byte
 			err error
 		)
 
@@ -330,13 +329,27 @@ func (p Plugin) Exec() error {
 				updateImageVersion(&p.Builder.DriverOptsNew, p.Builder.BuildkitVersion)
 			}
 			createCmd := cmdSetupBuildx(p.Builder, p.Builder.DriverOptsNew)
-			raw, err = createCmd.Output()
-			if err != nil {
+			// Enhanced debug logging for buildx create (new driver opts path)
+			fmt.Printf("[DEBUG] buildx create command (new opts): %s\n", createCmd.String())
+			fmt.Printf("[DEBUG] builder config: driver=%q name=%q daemonConfig=%q remoteConn=%q driverOptsNew=%v useLoadedBuildkit=%v buildkitVersion=%q tlsHandshakeTimeout=%q responseHeaderTimeout=%q\n",
+				p.Builder.Driver, p.Builder.Name, p.Builder.DaemonConfig, p.Builder.RemoteConn, p.Builder.DriverOptsNew, p.Builder.UseLoadedBuildkit, p.Builder.BuildkitVersion, p.Builder.BuildkitTLSHandshakeTimeout, p.Builder.BuildkitResponseHeaderTimeout)
+			var stdoutBufNew, stderrBufNew bytes.Buffer
+			createCmd.Stdout = &stdoutBufNew
+			createCmd.Stderr = &stderrBufNew
+			if err = createCmd.Run(); err != nil {
+				fmt.Printf("[ERROR] buildx create (new opts) failed\n")
+				fmt.Printf("[ERROR] Command: %s\n", createCmd.String())
+				if out := stdoutBufNew.String(); out != "" {
+					fmt.Printf("[ERROR] stdout:\n%s\n", out)
+				}
+				if errOut := stderrBufNew.String(); errOut != "" {
+					fmt.Printf("[ERROR] stderr:\n%s\n", errOut)
+				}
 				fmt.Printf("Unable to setup buildx with new driver opts: %s\n", err)
 				// Mark that the fallback will be used
 				shouldFallback = true
 			} else {
-				p.Builder.Name = strings.TrimSuffix(string(raw), "\n")
+				p.Builder.Name = strings.TrimSuffix(stdoutBufNew.String(), "\n")
 				// If builder creation is successful, inspect the builder
 				inspectCmd := cmdInspectBuildx(p.Builder.Name)
 				if err := inspectCmd.Run(); err != nil {
@@ -362,11 +375,25 @@ func (p Plugin) Exec() error {
 				updateImageVersion(&p.Builder.DriverOpts, version)
 			}
 			createCmd := cmdSetupBuildx(p.Builder, p.Builder.DriverOpts)
-			raw, err = createCmd.Output()
-			if err != nil {
-				return fmt.Errorf("error while creating buildx builder: %s and err: %s", string(raw), err)
+			// Enhanced debug logging for buildx create (fallback path)
+			fmt.Printf("[DEBUG] buildx create command: %s\n", createCmd.String())
+			fmt.Printf("[DEBUG] builder config: driver=%q name=%q daemonConfig=%q remoteConn=%q driverOpts=%v useLoadedBuildkit=%v buildkitVersion=%q tlsHandshakeTimeout=%q responseHeaderTimeout=%q\n",
+				p.Builder.Driver, p.Builder.Name, p.Builder.DaemonConfig, p.Builder.RemoteConn, p.Builder.DriverOpts, p.Builder.UseLoadedBuildkit, p.Builder.BuildkitVersion, p.Builder.BuildkitTLSHandshakeTimeout, p.Builder.BuildkitResponseHeaderTimeout)
+			var stdoutBuf, stderrBuf bytes.Buffer
+			createCmd.Stdout = &stdoutBuf
+			createCmd.Stderr = &stderrBuf
+			if err = createCmd.Run(); err != nil {
+				fmt.Printf("[ERROR] buildx create failed\n")
+				fmt.Printf("[ERROR] Command: %s\n", createCmd.String())
+				if out := stdoutBuf.String(); out != "" {
+					fmt.Printf("[ERROR] stdout:\n%s\n", out)
+				}
+				if errOut := stderrBuf.String(); errOut != "" {
+					fmt.Printf("[ERROR] stderr:\n%s\n", errOut)
+				}
+				return fmt.Errorf("error while creating buildx builder: %w", err)
 			}
-			p.Builder.Name = strings.TrimSuffix(string(raw), "\n")
+			p.Builder.Name = strings.TrimSuffix(stdoutBuf.String(), "\n")
 			inspectCmd := cmdInspectBuildx(p.Builder.Name)
 			if err := inspectCmd.Run(); err != nil {
 				return fmt.Errorf("error while bootstraping buildx builder: %s", err)
