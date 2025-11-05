@@ -14,7 +14,7 @@ const (
 	remoteDriver          = "remote"
 )
 
-func cmdSetupBuildx(builder Builder, driverOpts []string) *exec.Cmd {
+func cmdSetupBuildx(builder Builder, driverOpts []string, inheritAuth bool) *exec.Cmd {
 	args := []string{"buildx", "create", "--use", "--driver", builder.Driver}
 	if builder.Name != "" {
 		args = append(args, "--name", builder.Name)
@@ -35,24 +35,25 @@ func cmdSetupBuildx(builder Builder, driverOpts []string) *exec.Cmd {
 		args = append(args, "--driver-opt", "network=host")
 	}
 
-	// Check for AWS_ environment variables and add them as driver options
-	for _, env := range os.Environ() {
-		if strings.HasPrefix(env, "AWS_") {
-			parts := strings.SplitN(env, "=", 2)
-			if len(parts) == 2 {
-				envName := parts[0]
-				envValue := parts[1]
-				args = append(args, "--driver-opt", fmt.Sprintf("env.%s=%s", envName, envValue))
+	if inheritAuth {
+		for _, env := range os.Environ() {
+			if strings.HasPrefix(env, "AWS_") {
+				parts := strings.SplitN(env, "=", 2)
+				if len(parts) == 2 {
+					envName := parts[0]
+					envValue := parts[1]
+					args = append(args, "--driver-opt", fmt.Sprintf("env.%s=%s", envName, envValue))
+				}
 			}
 		}
-	}
 
-	// Check for AWS_WEB_IDENTITY_TOKEN_FILE and read its content
-	if tokenFile := os.Getenv("AWS_WEB_IDENTITY_TOKEN_FILE"); tokenFile != "" {
-		if _, err := os.Stat(tokenFile); err == nil {
-			// File exists, read its content
-			if content, err := ioutil.ReadFile(tokenFile); err == nil {
-				args = append(args, "--driver-opt", fmt.Sprintf("env.INHERITED_AWS_TOKEN_FILE_CONTENT=%s", string(content)))
+		if tokenFile := os.Getenv("AWS_WEB_IDENTITY_TOKEN_FILE"); tokenFile != "" {
+			if _, err := os.Stat(tokenFile); err == nil {
+				if content, err := ioutil.ReadFile(tokenFile); err == nil {
+					args = append(args, "--driver-opt", fmt.Sprintf("env.INHERITED_AWS_TOKEN_FILE_CONTENT=%s", string(content)))
+				}
+			} else {
+				fmt.Fprintf(os.Stderr, "Warning: AWS_WEB_IDENTITY_TOKEN_FILE is set to '%s' but the file does not exist\n", tokenFile)
 			}
 		}
 	}

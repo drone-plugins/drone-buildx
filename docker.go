@@ -99,29 +99,30 @@ type (
 		BuildxOptions                []string // Generic buildx options passed directly to the buildx command
 		BuildxOptionsSemicolon       string   // Buildx options separated by semicolons instead of commas
 		// Buildx Bake (opt-in)
-		BakeFile                     string // Buildx Bake definition file (HCL/JSON/Compose). If set, Bake mode is active
-		BakeOptions                  string // Semicolon-delimited Bake options and/or target names
+		BakeFile    string // Buildx Bake definition file (HCL/JSON/Compose). If set, Bake mode is active
+		BakeOptions string // Semicolon-delimited Bake options and/or target names
 	}
 
 	// Plugin defines the Docker plugin parameters.
 	Plugin struct {
-		Login             Login   // Docker login configuration
-		Build             Build   // Docker build configuration
-		Builder           Builder // Docker Buildx builder configuration
-		Daemon            Daemon  // Docker daemon configuration
-		Dryrun            bool    // Docker push is skipped
-		Cleanup           bool    // Docker purge is enabled
-		CardPath          string  // Card path to write file to
-		MetadataFile      string  // Location to write the metadata file
-		ArtifactFile      string  // Artifact path to write file to
-		CacheMetricsFile  string  // Location to write the cache metrics file
-		BaseImageRegistry string  // Docker registry to pull base image
-		BaseImageUsername string  // Docker registry username to pull base image
-		BaseImagePassword string  // Docker registry password to pull base image
-		PushOnly          bool    // Push only mode, skips build process
-		SourceTarPath     string  // Path to Docker image tar file to load and push
-		TarPath           string  // Path to save Docker image as tar file
-		SourceImage       string  // Source image to push (optional)
+		Login               Login   // Docker login configuration
+		Build               Build   // Docker build configuration
+		Builder             Builder // Docker Buildx builder configuration
+		Daemon              Daemon  // Docker daemon configuration
+		Dryrun              bool    // Docker push is skipped
+		Cleanup             bool    // Docker purge is enabled
+		CardPath            string  // Card path to write file to
+		MetadataFile        string  // Location to write the metadata file
+		ArtifactFile        string  // Artifact path to write file to
+		CacheMetricsFile    string  // Location to write the cache metrics file
+		BaseImageRegistry   string  // Docker registry to pull base image
+		BaseImageUsername   string  // Docker registry username to pull base image
+		BaseImagePassword   string  // Docker registry password to pull base image
+		PushOnly            bool    // Push only mode, skips build process
+		SourceTarPath       string  // Path to Docker image tar file to load and push
+		TarPath             string  // Path to save Docker image as tar file
+		SourceImage         string  // Source image to push (optional)
+		BuildkitInheritAuth bool    // Inherit auth from docker daemon
 	}
 
 	Card []struct {
@@ -329,7 +330,7 @@ func (p Plugin) Exec() error {
 				fmt.Printf("Using BuildKit Version with new driver opts: %s\n", p.Builder.BuildkitVersion)
 				updateImageVersion(&p.Builder.DriverOptsNew, p.Builder.BuildkitVersion)
 			}
-			createCmd := cmdSetupBuildx(p.Builder, p.Builder.DriverOptsNew)
+			createCmd := cmdSetupBuildx(p.Builder, p.Builder.DriverOptsNew, p.BuildkitInheritAuth)
 			raw, err = createCmd.Output()
 			if err != nil {
 				fmt.Printf("Unable to setup buildx with new driver opts: %s\n", err)
@@ -361,7 +362,7 @@ func (p Plugin) Exec() error {
 				fmt.Printf("Using BuildKit Version: %s\n", version)
 				updateImageVersion(&p.Builder.DriverOpts, version)
 			}
-			createCmd := cmdSetupBuildx(p.Builder, p.Builder.DriverOpts)
+			createCmd := cmdSetupBuildx(p.Builder, p.Builder.DriverOpts, p.BuildkitInheritAuth)
 			raw, err = createCmd.Output()
 			if err != nil {
 				return fmt.Errorf("error while creating buildx builder: %s and err: %s", string(raw), err)
@@ -770,40 +771,40 @@ func commandBuildx(build Build, builder Builder, dryrun bool, metadataFile strin
 
 // helper function to create the docker buildx bake command.
 func commandBuildxBake(build Build, builder Builder, dryrun bool, metadataFile string) *exec.Cmd {
-    args := []string{"buildx", "bake"}
+	args := []string{"buildx", "bake"}
 
-    if build.BakeFile != "" {
-        args = append(args, "-f", build.BakeFile)
-    }
-    if builder.Name != "" {
-        args = append(args, "--builder", builder.Name)
-    }
+	if build.BakeFile != "" {
+		args = append(args, "-f", build.BakeFile)
+	}
+	if builder.Name != "" {
+		args = append(args, "--builder", builder.Name)
+	}
 
-    if dryrun {
-        args = append(args, "--load")
-    } else {
-        args = append(args, "--push")
-    }
+	if dryrun {
+		args = append(args, "--load")
+	} else {
+		args = append(args, "--push")
+	}
 
-    if metadataFile != "" {
-        args = append(args, "--metadata-file", metadataFile)
-    }
+	if metadataFile != "" {
+		args = append(args, "--metadata-file", metadataFile)
+	}
 
-    if build.BakeOptions != "" {
-        tokens := strings.Split(build.BakeOptions, ";")
-        for _, t := range tokens {
-            t = strings.TrimSpace(t)
-            if t == "" {
-                continue
-            }
-            if t == "--push" || t == "--load" {
-                continue
-            }
-            args = append(args, t)
-        }
-    }
+	if build.BakeOptions != "" {
+		tokens := strings.Split(build.BakeOptions, ";")
+		for _, t := range tokens {
+			t = strings.TrimSpace(t)
+			if t == "" {
+				continue
+			}
+			if t == "--push" || t == "--load" {
+				continue
+			}
+			args = append(args, t)
+		}
+	}
 
-    return exec.Command(dockerExe, args...)
+	return exec.Command(dockerExe, args...)
 }
 
 func sanitizeCacheCommand(build *Build) {

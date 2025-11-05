@@ -460,6 +460,11 @@ func Run() {
 			Usage:  "path to save Docker image as tar file",
 			EnvVar: "PLUGIN_TAR_PATH, PLUGIN_DESTINATION_TAR_PATH",
 		},
+		cli.StringFlag{
+			Name:   "buildkit-inherit-auth",
+			Usage:  "inherit auth from docker daemon",
+			EnvVar: "PLUGIN_BUILDKIT_INHERIT_AUTH",
+		},
 	}
 
 	if err := app.Run(os.Args); err != nil {
@@ -557,13 +562,14 @@ func run(c *cli.Context) error {
 			BuildkitTLSHandshakeTimeout:   c.String("buildkit-tls-handshake-timeout"),
 			BuildkitResponseHeaderTimeout: c.String("buildkit-response-header-timeout"),
 		},
-		BaseImageRegistry: c.String("docker.baseimageregistry"),
-		BaseImageUsername: c.String("docker.baseimageusername"),
-		BaseImagePassword: c.String("docker.baseimagepassword"),
-		PushOnly:          c.Bool("push-only"),
-		SourceImage:       c.String("source-image"),
-		SourceTarPath:     c.String("source-tar-path"),
-		TarPath:           c.String("tar-path"),
+		BaseImageRegistry:   c.String("docker.baseimageregistry"),
+		BaseImageUsername:   c.String("docker.baseimageusername"),
+		BaseImagePassword:   c.String("docker.baseimagepassword"),
+		PushOnly:            c.Bool("push-only"),
+		SourceImage:         c.String("source-image"),
+		SourceTarPath:       c.String("source-tar-path"),
+		TarPath:             c.String("tar-path"),
+		BuildkitInheritAuth: c.Bool("buildkit-inherit-auth"),
 	}
 
 	if c.Bool("tags.auto") {
