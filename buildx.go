@@ -50,6 +50,10 @@ func cmdSetupBuildx(builder Builder, driverOpts []string, inheritAuth bool) *exe
 		if tokenFile := os.Getenv("AWS_WEB_IDENTITY_TOKEN_FILE"); tokenFile != "" {
 			if _, err := os.Stat(tokenFile); err == nil {
 				if content, err := ioutil.ReadFile(tokenFile); err == nil {
+					const maxSafeSize = 8 * 1024
+					if len(content) > maxSafeSize {
+						fmt.Fprintf(os.Stderr, "Warning: AWS_WEB_IDENTITY_TOKEN_FILE content size (%d bytes) exceeds safe command line argument size limit (%d bytes)\n", len(content), maxSafeSize)
+					}
 					args = append(args, "--driver-opt", fmt.Sprintf("env.INHERITED_AWS_TOKEN_FILE_CONTENT=%s", string(content)))
 				}
 			} else {
