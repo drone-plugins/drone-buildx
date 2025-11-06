@@ -35,7 +35,19 @@ func cmdSetupBuildx(builder Builder, driverOpts []string, inheritAuth bool) *exe
 		args = append(args, "--driver-opt", "network=host")
 	}
 
+	if builder.RemoteConn != "" && builder.Driver == remoteDriver {
+		args = append(args, builder.RemoteConn)
+	}
+	// Collect buildkitd flags
+	var buildkitdFlags []string
+	if builder.BuildkitTLSHandshakeTimeout != "" {
+		buildkitdFlags = append(buildkitdFlags, fmt.Sprintf("--tls-handshake-timeout=%s", builder.BuildkitTLSHandshakeTimeout))
+	}
+	if builder.BuildkitResponseHeaderTimeout != "" {
+		buildkitdFlags = append(buildkitdFlags, fmt.Sprintf("--response-header-timeout=%s", builder.BuildkitResponseHeaderTimeout))
+	}
 	if inheritAuth {
+		fmt.Println("Inheriting auth")
 		for _, env := range os.Environ() {
 			if strings.HasPrefix(env, "AWS_") {
 				parts := strings.SplitN(env, "=", 2)
@@ -54,25 +66,13 @@ func cmdSetupBuildx(builder Builder, driverOpts []string, inheritAuth bool) *exe
 					if len(content) > maxSafeSize {
 						fmt.Fprintf(os.Stderr, "Warning: AWS_WEB_IDENTITY_TOKEN_FILE content size (%d bytes) exceeds safe command line argument size limit (%d bytes)\n", len(content), maxSafeSize)
 					}
-					args = append(args, "--aws-token-content", string(content))
-					args = append(args, "--aws-token-path", tokenFilePath)
+					buildkitdFlags = append(buildkitdFlags, fmt.Sprintf("--aws-token-content=%s", string(content)))
+					buildkitdFlags = append(buildkitdFlags, fmt.Sprintf("--aws-token-path=%s", tokenFilePath))
 				}
 			} else {
 				fmt.Fprintf(os.Stderr, "Warning: AWS_WEB_IDENTITY_TOKEN_FILE is set to '%s' but the file does not exist\n", tokenFilePath)
 			}
 		}
-	}
-
-	if builder.RemoteConn != "" && builder.Driver == remoteDriver {
-		args = append(args, builder.RemoteConn)
-	}
-	// Collect buildkitd flags
-	var buildkitdFlags []string
-	if builder.BuildkitTLSHandshakeTimeout != "" {
-		buildkitdFlags = append(buildkitdFlags, fmt.Sprintf("--tls-handshake-timeout=%s", builder.BuildkitTLSHandshakeTimeout))
-	}
-	if builder.BuildkitResponseHeaderTimeout != "" {
-		buildkitdFlags = append(buildkitdFlags, fmt.Sprintf("--response-header-timeout=%s", builder.BuildkitResponseHeaderTimeout))
 	}
 	if len(buildkitdFlags) > 0 {
 		args = append(args, "--buildkitd-flags", strings.Join(buildkitdFlags, " "))
