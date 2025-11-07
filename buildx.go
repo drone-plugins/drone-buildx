@@ -2,6 +2,7 @@ package docker
 
 import (
 	"fmt"
+	"io/ioutil"
 	"os"
 	"os/exec"
 	"strings"
@@ -13,7 +14,7 @@ const (
 	remoteDriver          = "remote"
 )
 
-func cmdSetupBuildx(builder Builder, driverOpts []string) *exec.Cmd {
+func cmdSetupBuildx(builder Builder, driverOpts []string, inheritAuth bool) *exec.Cmd {
 	args := []string{"buildx", "create", "--use", "--driver", builder.Driver}
 	if builder.Name != "" {
 		args = append(args, "--name", builder.Name)
@@ -33,6 +34,7 @@ func cmdSetupBuildx(builder Builder, driverOpts []string) *exec.Cmd {
 
 		args = append(args, "--driver-opt", "network=host")
 	}
+
 	if builder.RemoteConn != "" && builder.Driver == remoteDriver {
 		args = append(args, builder.RemoteConn)
 	}
@@ -43,6 +45,34 @@ func cmdSetupBuildx(builder Builder, driverOpts []string) *exec.Cmd {
 	}
 	if builder.BuildkitResponseHeaderTimeout != "" {
 		buildkitdFlags = append(buildkitdFlags, fmt.Sprintf("--response-header-timeout=%s", builder.BuildkitResponseHeaderTimeout))
+	}
+	if inheritAuth {
+		fmt.Println("Inheriting auth")
+		for _, env := range os.Environ() {
+			if strings.HasPrefix(env, "AWS_") {
+				parts := strings.SplitN(env, "=", 2)
+				if len(parts) == 2 {
+					envName := parts[0]
+					envValue := parts[1]
+					args = append(args, "--driver-opt", fmt.Sprintf("env.%s=%s", envName, envValue))
+				}
+			}
+		}
+
+		if tokenFilePath := os.Getenv("AWS_WEB_IDENTITY_TOKEN_FILE"); tokenFilePath != "" {
+			if _, err := os.Stat(tokenFilePath); err == nil {
+				if content, err := ioutil.ReadFile(tokenFilePath); err == nil {
+					const maxSafeSize = 4 * 1024
+					if len(content) > maxSafeSize {
+						fmt.Fprintf(os.Stderr, "Warning: AWS_WEB_IDENTITY_TOKEN_FILE content size (%d bytes) exceeds safe command line argument size limit (%d bytes)\n", len(content), maxSafeSize)
+					}
+					buildkitdFlags = append(buildkitdFlags, fmt.Sprintf("--aws-token-content=%s", string(content)))
+					buildkitdFlags = append(buildkitdFlags, fmt.Sprintf("--aws-token-path=%s", tokenFilePath))
+				}
+			} else {
+				fmt.Fprintf(os.Stderr, "Warning: AWS_WEB_IDENTITY_TOKEN_FILE is set to '%s' but the file does not exist\n", tokenFilePath)
+			}
+		}
 	}
 	if len(buildkitdFlags) > 0 {
 		args = append(args, "--buildkitd-flags", strings.Join(buildkitdFlags, " "))
