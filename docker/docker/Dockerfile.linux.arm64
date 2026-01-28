@@ -1,10 +1,5 @@
 FROM arm64v8/docker:28.1.1-dind
 
-# Upgrade Alpine packages to fix security vulnerabilities
-# CVE-2025-9230: openssl 3.3.3-r0 -> 3.3.5-r0
-# CVE-2025-9086: curl 8.12.1-r1 -> 8.14.1-r2
-RUN apk update && apk upgrade --no-cache openssl curl
-
 ENV DOCKER_HOST=unix:///var/run/docker.sock
 
 ENV DOCKER_BUILDKIT=1
