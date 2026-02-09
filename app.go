@@ -102,6 +102,12 @@ func Run() {
 			Usage:  "don't start the docker daemon",
 			EnvVar: "PLUGIN_DAEMON_OFF",
 		},
+		cli.IntFlag{
+			Name:   "daemon.retry-count",
+			Usage:  "number of retry attempts to reach docker daemon",
+			Value:  15,
+			EnvVar: "PLUGIN_DAEMON_RETRY_COUNT",
+		},
 		cli.StringFlag{
 			Name:   "artifact.registry",
 			Usage:  "artifact registry",
@@ -548,6 +554,7 @@ func run(c *cli.Context) error {
 			MTU:              c.String("daemon.mtu"),
 			RegistryType:     registryType,
 			ArtifactRegistry: c.String("artifact.registry"),
+			RetryCount:       c.Int("daemon.retry-count"),
 		},
 		Builder: Builder{
 			Name:                          c.String("builder-name"),
