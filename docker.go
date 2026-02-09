@@ -33,6 +33,7 @@ type (
 		IPv6             bool               // Docker daemon IPv6 networking
 		RegistryType     drone.RegistryType // Docker registry type
 		ArtifactRegistry string             // Docker registry where artifact can be viewed
+		RetryCount    int                // Number of retry attempts to reach Docker daemon
 	}
 
 	Builder struct {
@@ -172,14 +173,18 @@ func (p Plugin) Exec() error {
 	}
 	// poll the docker daemon until it is started. This ensures the daemon is
 	// ready to accept connections before we proceed.
+	maxAttempts := p.Daemon.RetryCount
+	if maxAttempts <= 0 {
+		maxAttempts = 15 // default value
+	}
 	for i := 0; ; i++ {
 		cmd := commandInfo()
 		err := cmd.Run()
 		if err == nil {
 			break
 		}
-		if i == 15 {
-			fmt.Println("Unable to reach Docker Daemon after 15 attempts.")
+		if i == maxAttempts-1 {
+			fmt.Printf("Unable to reach Docker Daemon after %d attempts.\n", maxAttempts)
 			break
 		}
 		time.Sleep(time.Second * 1)
