@@ -929,7 +929,13 @@ func getProxyValue(key string) string {
 		return value
 	}
 
-	return os.Getenv(strings.ToUpper(key))
+	value = os.Getenv(strings.ToUpper(key))
+
+	if len(value) > 0 {
+		return value
+	}
+
+	return os.Getenv("HARNESS_" + strings.ToUpper(key))
 }
 
 // helper function that looks to see if a proxy value was set in the build args.
