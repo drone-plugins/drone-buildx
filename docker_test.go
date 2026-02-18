@@ -701,3 +701,114 @@ func TestSourceImageParsing(t *testing.T) {
 		})
 	}
 }
+
+func TestGetProxyValue(t *testing.T) {
+	tests := []struct {
+		name           string
+		key            string
+		lowercaseValue string
+		uppercaseValue string
+		harnessValue   string
+		expected       string
+	}{
+		{
+			name:           "returns value from lowercase env var",
+			key:            "http_proxy",
+			lowercaseValue: "http://proxy.example.com:8080",
+			expected:       "http://proxy.example.com:8080",
+		},
+		{
+			name:           "returns value from uppercase env var when lowercase is absent",
+			key:            "http_proxy",
+			uppercaseValue: "http://proxy.example.com:8080",
+			expected:       "http://proxy.example.com:8080",
+		},
+		{
+			name:         "returns value from HARNESS_ prefixed var when both standard variants are absent",
+			key:          "http_proxy",
+			harnessValue: "http://harness-proxy.example.com:8080",
+			expected:     "http://harness-proxy.example.com:8080",
+		},
+		{
+			name:     "returns empty string when none are set",
+			key:      "http_proxy",
+			expected: "",
+		},
+		{
+			name:           "standard vars take priority over HARNESS_* - lowercase priority",
+			key:            "https_proxy",
+			lowercaseValue: "https://proxy.example.com:8080",
+			harnessValue:   "https://harness-proxy.example.com:8080",
+			expected:       "https://proxy.example.com:8080",
+		},
+		{
+			name:           "standard vars take priority over HARNESS_* - uppercase priority",
+			key:            "https_proxy",
+			uppercaseValue: "https://proxy.example.com:8080",
+			harnessValue:   "https://harness-proxy.example.com:8080",
+			expected:       "https://proxy.example.com:8080",
+		},
+		{
+			name:           "lowercase takes priority over uppercase when both are set",
+			key:            "no_proxy",
+			lowercaseValue: "localhost,127.0.0.1",
+			uppercaseValue: "*.example.com",
+			expected:       "localhost,127.0.0.1",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Set up test environment
+			lowercaseKey := tt.key
+			uppercaseKey := strings.ToUpper(tt.key)
+			harnessKey := "HARNESS_" + strings.ToUpper(tt.key)
+
+			// Save and restore original values
+			origLowercase, _ := os.LookupEnv(lowercaseKey)
+			origUppercase, _ := os.LookupEnv(uppercaseKey)
+			origHarness, _ := os.LookupEnv(harnessKey)
+
+			defer func() {
+				if origLowercase != "" {
+					os.Setenv(lowercaseKey, origLowercase)
+				} else {
+					os.Unsetenv(lowercaseKey)
+				}
+				if origUppercase != "" {
+					os.Setenv(uppercaseKey, origUppercase)
+				} else {
+					os.Unsetenv(uppercaseKey)
+				}
+				if origHarness != "" {
+					os.Setenv(harnessKey, origHarness)
+				} else {
+					os.Unsetenv(harnessKey)
+				}
+			}()
+
+			// Set test values
+			if tt.lowercaseValue != "" {
+				os.Setenv(lowercaseKey, tt.lowercaseValue)
+			} else {
+				os.Unsetenv(lowercaseKey)
+			}
+			if tt.uppercaseValue != "" {
+				os.Setenv(uppercaseKey, tt.uppercaseValue)
+			} else {
+				os.Unsetenv(uppercaseKey)
+			}
+			if tt.harnessValue != "" {
+				os.Setenv(harnessKey, tt.harnessValue)
+			} else {
+				os.Unsetenv(harnessKey)
+			}
+
+			// Execute and verify
+			result := getProxyValue(tt.key)
+			if result != tt.expected {
+				t.Errorf("getProxyValue(%q) = %q, want %q", tt.key, result, tt.expected)
+			}
+		})
+	}
+}
