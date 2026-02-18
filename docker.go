@@ -936,7 +936,11 @@ func getProxyValue(key string) string {
 		return value
 	}
 
-	return os.Getenv("HARNESS_" + strings.ToUpper(key))
+	harnessValue := os.Getenv("HARNESS_" + strings.ToUpper(key))
+	if len(harnessValue) > 0 {
+		fmt.Printf("Using HARNESS_%s as proxy value for %s\n", strings.ToUpper(key), key)
+	}
+	return harnessValue
 }
 
 // helper function that looks to see if a proxy value was set in the build args.
