@@ -520,6 +520,7 @@ pipeline:
                 enabled: false
             when:
               pipelineStatus: Success
+              condition: "false"
     - parallel:
         - stage:
             identifier: Manifest
