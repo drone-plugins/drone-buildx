@@ -2,8 +2,10 @@ package docker
 
 import (
 	"bytes"
+	"crypto/x509"
 	"encoding/base64"
 	"encoding/json"
+	"encoding/pem"
 	"fmt"
 	"os"
 	"os/exec"
@@ -33,7 +35,7 @@ type (
 		IPv6             bool               // Docker daemon IPv6 networking
 		RegistryType     drone.RegistryType // Docker registry type
 		ArtifactRegistry string             // Docker registry where artifact can be viewed
-		RetryCount    int                // Number of retry attempts to reach Docker daemon
+		RetryCount       int                // Number of retry attempts to reach Docker daemon
 	}
 
 	Builder struct {
@@ -48,6 +50,7 @@ type (
 		BuildkitVersion               string   // Buildkit version
 		BuildkitTLSHandshakeTimeout   string   // Buildkit TLS handshake timeout
 		BuildkitResponseHeaderTimeout string   // Buildkit response header timeout
+		CACertPath                    string   // Path to CA cert bundle to propagate into BuildKit container
 	}
 
 	// Login defines Docker login parameters.
@@ -383,6 +386,10 @@ func (p Plugin) Exec() error {
 		defer func() {
 			removeCmd.Run()
 		}()
+
+		if p.Builder.Driver == dockerContainerDriver {
+			propagateCACertsToBuiltkit(p.Builder)
+		}
 	}
 
 	// Enforce mutual exclusivity: Bake mode and Push-only mode cannot be used together
@@ -1260,4 +1267,68 @@ func (p Plugin) pushOnly() error {
 	}
 
 	return nil
+}
+
+const buildkitCertPath = "/etc/ssl/certs/ca-certificates.crt"
+
+func propagateCACertsToBuiltkit(builder Builder) {
+	srcPath := builder.CACertPath
+	if srcPath == "" {
+		srcPath = buildkitCertPath
+	}
+
+	info, err := os.Stat(srcPath)
+	if err != nil {
+		fmt.Printf("[CACert] CA cert bundle not found at %s: %v\n", srcPath, err)
+		if builder.CACertPath != "" {
+			fmt.Printf("[CACert] WARNING: PLUGIN_BUILDKIT_CA_CERT_PATH was explicitly set to %s but the file does not exist\n", builder.CACertPath)
+		}
+		return
+	}
+	fmt.Printf("[CACert] Found CA cert bundle at %s (size=%d bytes)\n", srcPath, info.Size())
+
+	data, err := os.ReadFile(srcPath)
+	if err != nil {
+		fmt.Printf("[CACert] Failed to read CA cert bundle: %v\n", err)
+		return
+	}
+	logCertBundleSummary(srcPath, data)
+
+	containerName := fmt.Sprintf("buildx_buildkit_%s0", builder.Name)
+	fmt.Printf("[CACert] Copying CA cert bundle from %s to %s:%s\n", srcPath, containerName, buildkitCertPath)
+
+	cmd := exec.Command(dockerExe, "cp", srcPath, containerName+":"+buildkitCertPath)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		fmt.Printf("[CACert] WARNING: Failed to copy CA certs to BuildKit container: %v, output: %s\n", err, string(output))
+		return
+	}
+	fmt.Printf("[CACert] Successfully copied CA cert bundle to BuildKit container %s\n", containerName)
+}
+
+func logCertBundleSummary(path string, data []byte) {
+	var totalCerts int
+	rest := data
+	for {
+		var block *pem.Block
+		block, rest = pem.Decode(rest)
+		if block == nil {
+			break
+		}
+		if block.Type == "CERTIFICATE" {
+			totalCerts++
+			cert, err := x509.ParseCertificate(block.Bytes)
+			if err == nil && totalCerts <= 3 {
+				fmt.Printf("[CACert]   cert #%d: Subject=%s Issuer=%s\n", totalCerts, cert.Subject, cert.Issuer)
+			}
+		}
+	}
+	fmt.Printf("[CACert] Bundle %s contains %d certificates total\n", path, totalCerts)
+
+	systemPool, err := x509.SystemCertPool()
+	if err != nil {
+		fmt.Printf("[CACert] Could not load system cert pool in plugin container: %v\n", err)
+	} else {
+		fmt.Printf("[CACert] Plugin container system cert pool has %d certificates\n", len(systemPool.Subjects()))
+	}
 }
