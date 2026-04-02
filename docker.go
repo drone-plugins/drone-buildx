@@ -383,12 +383,20 @@ func (p Plugin) Exec() error {
 		}
 
 		removeCmd := cmdRemoveBuildx(p.Builder.Name)
+		var stopLogStream func()
 		defer func() {
+			if stopLogStream != nil {
+				stopLogStream()
+			}
+			if p.Builder.Driver == dockerContainerDriver {
+				dumpBuildKitLogs(p.Builder.Name)
+			}
 			removeCmd.Run()
 		}()
 
 		if p.Builder.Driver == dockerContainerDriver {
 			propagateCACertsToBuiltkit(p.Builder)
+			stopLogStream = streamBuildKitLogs(p.Builder.Name)
 		}
 	}
 
@@ -1331,4 +1339,54 @@ func logCertBundleSummary(path string, data []byte) {
 	} else {
 		fmt.Printf("[CACert] Plugin container system cert pool has %d certificates\n", len(systemPool.Subjects()))
 	}
+}
+
+const buildkitLogFile = "/harness/buildkit-debug.log"
+
+func streamBuildKitLogs(builderName string) func() {
+	containerName := fmt.Sprintf("buildx_buildkit_%s0", builderName)
+	fmt.Printf("[BuildKitLogs] Starting live log stream from %s to %s\n", containerName, buildkitLogFile)
+
+	logFile, err := os.Create(buildkitLogFile)
+	if err != nil {
+		fmt.Printf("[BuildKitLogs] WARNING: Failed to create %s: %v\n", buildkitLogFile, err)
+		return func() {}
+	}
+
+	cmd := exec.Command(dockerExe, "logs", "-f", containerName)
+	cmd.Stdout = logFile
+	cmd.Stderr = logFile
+
+	if err := cmd.Start(); err != nil {
+		fmt.Printf("[BuildKitLogs] WARNING: Failed to start log streaming: %v\n", err)
+		logFile.Close()
+		return func() {}
+	}
+
+	fmt.Printf("[BuildKitLogs] Live streaming started (pid=%d) → %s\n", cmd.Process.Pid, buildkitLogFile)
+
+	return func() {
+		cmd.Process.Kill()
+		cmd.Wait()
+		logFile.Close()
+		fmt.Printf("[BuildKitLogs] Live streaming stopped\n")
+	}
+}
+
+func dumpBuildKitLogs(builderName string) {
+	containerName := fmt.Sprintf("buildx_buildkit_%s0", builderName)
+	fmt.Printf("[BuildKitLogs] Dumping final logs from container %s to %s\n", containerName, buildkitLogFile)
+
+	cmd := exec.Command(dockerExe, "logs", containerName)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		fmt.Printf("[BuildKitLogs] WARNING: Failed to get logs from %s: %v\n", containerName, err)
+		return
+	}
+
+	if err := os.WriteFile(buildkitLogFile, output, 0644); err != nil {
+		fmt.Printf("[BuildKitLogs] WARNING: Failed to write logs to %s: %v\n", buildkitLogFile, err)
+		return
+	}
+	fmt.Printf("[BuildKitLogs] Successfully wrote %d bytes to %s\n", len(output), buildkitLogFile)
 }
