@@ -379,6 +379,17 @@ func TestSanitizeCacheCommand(t *testing.T) {
 			expectedCacheTo:   []string{"type=gcs,bucket=test,prefix=dlc"},
 		},
 		{
+			name: "Remove AWS placeholders when keys are empty",
+			build: Build{
+				CacheFrom:                    []string{"type=s3,bucket=test,access_key_id=harness_placeholder_aws_creds,secret_access_key=harness_placeholder_aws_creds,prefix=dlc"},
+				CacheTo:                      []string{"type=s3,bucket=test,access_key_id=harness_placeholder_aws_creds,secret_access_key=harness_placeholder_aws_creds,mode=max,ignore-error=true"},
+				HarnessSelfHostedS3AccessKey: "",
+				HarnessSelfHostedS3SecretKey: "",
+			},
+			expectedCacheFrom: []string{"type=s3,bucket=test,prefix=dlc"},
+			expectedCacheTo:   []string{"type=s3,bucket=test,mode=max,ignore-error=true"},
+		},
+		{
 			name: "Multiple placeholders in CacheFrom",
 			build: Build{
 				CacheFrom:                    []string{"type=gcs,gcp_json_key=harness_placeholder_gcp_creds,access_key_id=harness_placeholder_aws_creds,secret_access_key=harness_placeholder_aws_creds"},

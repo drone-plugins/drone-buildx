@@ -817,14 +817,26 @@ func sanitizeCacheCommand(build *Build) {
 	sanitizeCacheArgs := func(args []string) []string {
 		for i, arg := range args {
 
-			// Replace access_key_id if placeholder exists and the actual key is not empty
-			if strings.Contains(arg, "access_key_id=harness_placeholder_aws_creds") && build.HarnessSelfHostedS3AccessKey != "" {
-				arg = strings.Replace(arg, "access_key_id=harness_placeholder_aws_creds", "access_key_id="+build.HarnessSelfHostedS3AccessKey, 1)
+			// Handle access_key_id placeholder
+			if strings.Contains(arg, "access_key_id=harness_placeholder_aws_creds") {
+				if build.HarnessSelfHostedS3AccessKey != "" {
+					arg = strings.Replace(arg, "access_key_id=harness_placeholder_aws_creds", "access_key_id="+build.HarnessSelfHostedS3AccessKey, 1)
+				} else {
+					arg = strings.Replace(arg, ",access_key_id=harness_placeholder_aws_creds", "", 1)
+					arg = strings.Replace(arg, "access_key_id=harness_placeholder_aws_creds,", "", 1)
+					arg = strings.Replace(arg, "access_key_id=harness_placeholder_aws_creds", "", 1)
+				}
 			}
 
-			// Replace secret_access_key if placeholder exists and the actual key is not empty
-			if strings.Contains(arg, "secret_access_key=harness_placeholder_aws_creds") && build.HarnessSelfHostedS3SecretKey != "" {
-				arg = strings.Replace(arg, "secret_access_key=harness_placeholder_aws_creds", "secret_access_key="+build.HarnessSelfHostedS3SecretKey, 1)
+			// Handle secret_access_key placeholder
+			if strings.Contains(arg, "secret_access_key=harness_placeholder_aws_creds") {
+				if build.HarnessSelfHostedS3SecretKey != "" {
+					arg = strings.Replace(arg, "secret_access_key=harness_placeholder_aws_creds", "secret_access_key="+build.HarnessSelfHostedS3SecretKey, 1)
+				} else {
+					arg = strings.Replace(arg, ",secret_access_key=harness_placeholder_aws_creds", "", 1)
+					arg = strings.Replace(arg, "secret_access_key=harness_placeholder_aws_creds,", "", 1)
+					arg = strings.Replace(arg, "secret_access_key=harness_placeholder_aws_creds", "", 1)
+				}
 			}
 
 			// Handle gcp_json_key
