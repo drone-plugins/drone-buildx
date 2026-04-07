@@ -34,7 +34,7 @@ require (
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
 	golang.org/x/sys v0.30.0 // indirect
 	gopkg.in/yaml.v2 v2.2.8 // indirect
-	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b // indirect
+	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
 
 go 1.24.11
