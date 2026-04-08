@@ -924,7 +924,8 @@ pipeline:
                           spec: rf-plugins/drone-buildx/manifest.tmpl
                       when:
                         stageStatus: Success
-                        condition: <+codebase.build.type> == "tag"
+                        condition: |
+                          <+codebase.build.type> == "tag" || "branch"
                   - step:
                       identifier: Build_Binaries
                       type: Run
