@@ -466,7 +466,7 @@ func Run() {
 			Usage:  "path to save Docker image as tar file",
 			EnvVar: "PLUGIN_TAR_PATH, PLUGIN_DESTINATION_TAR_PATH",
 		},
-		cli.BoolFlag{
+		cli.BoolTFlag{
 			Name:   "buildkit-inherit-auth",
 			Usage:  "inherit auth from docker daemon",
 			EnvVar: "PLUGIN_BUILDKIT_INHERIT_AUTH",
