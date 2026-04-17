@@ -166,6 +166,19 @@ const (
 
 // Exec executes the plugin step
 func (p Plugin) Exec() error {
+	// Auto-detect and configure MTU if not explicitly set
+	// This must happen BEFORE starting the daemon
+	if p.Daemon.MTU == "" && !p.Daemon.Disabled {
+		if detectedMTU, err := detectNetworkMTU(); err == nil {
+			fmt.Printf("Auto-detected network MTU: %s (will be applied to Docker daemon and BuildKit containers)\n", detectedMTU)
+			p.Daemon.MTU = detectedMTU
+		} else {
+			fmt.Printf("Note: Could not auto-detect MTU (%s). Docker will use default MTU (1500).\n", err)
+			fmt.Printf("If you experience network issues, set PLUGIN_MTU explicitly (e.g., PLUGIN_MTU=1400)\n")
+		}
+	} else if p.Daemon.MTU != "" {
+		fmt.Printf("Using explicitly configured MTU: %s\n", p.Daemon.MTU)
+	}
 
 	// start the Docker daemon server
 	if !p.Daemon.Disabled {
@@ -335,7 +348,7 @@ func (p Plugin) Exec() error {
 				fmt.Printf("Using BuildKit Version with new driver opts: %s\n", p.Builder.BuildkitVersion)
 				updateImageVersion(&p.Builder.DriverOptsNew, p.Builder.BuildkitVersion)
 			}
-			createCmd := cmdSetupBuildx(p.Builder, p.Builder.DriverOptsNew, p.BuildkitInheritAuth)
+			createCmd := cmdSetupBuildx(p.Builder, p.Builder.DriverOptsNew, p.BuildkitInheritAuth, p.Daemon.MTU)
 			raw, err = createCmd.Output()
 			if err != nil {
 				fmt.Printf("Unable to setup buildx with new driver opts: %s\n", err)
@@ -367,7 +380,7 @@ func (p Plugin) Exec() error {
 				fmt.Printf("Using BuildKit Version: %s\n", version)
 				updateImageVersion(&p.Builder.DriverOpts, version)
 			}
-			createCmd := cmdSetupBuildx(p.Builder, p.Builder.DriverOpts, p.BuildkitInheritAuth)
+			createCmd := cmdSetupBuildx(p.Builder, p.Builder.DriverOpts, p.BuildkitInheritAuth, p.Daemon.MTU)
 			raw, err = createCmd.Output()
 			if err != nil {
 				return fmt.Errorf("error while creating buildx builder: %s and err: %s", string(raw), err)

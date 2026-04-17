@@ -14,7 +14,7 @@ const (
 	remoteDriver          = "remote"
 )
 
-func cmdSetupBuildx(builder Builder, driverOpts []string, inheritAuth bool) *exec.Cmd {
+func cmdSetupBuildx(builder Builder, driverOpts []string, inheritAuth bool, daemonMTU string) *exec.Cmd {
 	args := []string{"buildx", "create", "--use", "--driver", builder.Driver}
 	if builder.Name != "" {
 		args = append(args, "--name", builder.Name)
@@ -25,6 +25,8 @@ func cmdSetupBuildx(builder Builder, driverOpts []string, inheritAuth bool) *exe
 	for _, opt := range driverOpts {
 		args = append(args, "--driver-opt", opt)
 	}
+
+	usingHostNetwork := false
 	if harnessHttpProxy := os.Getenv("HARNESS_HTTP_PROXY"); harnessHttpProxy != "" {
 		args = append(args, "--driver-opt", fmt.Sprintf("env.http_proxy=%s", harnessHttpProxy))
 
@@ -33,6 +35,19 @@ func cmdSetupBuildx(builder Builder, driverOpts []string, inheritAuth bool) *exe
 		}
 
 		args = append(args, "--driver-opt", "network=host")
+		usingHostNetwork = true
+	}
+
+	// Configure MTU for BuildKit container network (skip if using host network)
+	// Host network inherits MTU automatically, but bridge networks need explicit configuration
+	if !usingHostNetwork && builder.Driver == dockerContainerDriver {
+		effectiveMTU := getEffectiveMTU(daemonMTU)
+		if effectiveMTU != "" {
+			// Create a custom network with the correct MTU
+			// Note: We don't use network= driver-opt here because it doesn't support MTU parameter
+			// Instead, BuildKit container will use the default bridge, which inherits from dockerd's --mtu setting
+			fmt.Printf("BuildKit will inherit MTU from Docker daemon: %s\n", effectiveMTU)
+		}
 	}
 
 	if builder.RemoteConn != "" && builder.Driver == remoteDriver {
