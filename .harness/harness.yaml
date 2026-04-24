@@ -384,8 +384,10 @@ pipeline:
                       identifier: Build_Binary
                       spec:
                         connectorRef: Plugins_Docker_Hub_Connector
-                        image: golang:1.26
+                        image: golang:1.24.3
                         shell: Sh
+                        envVariables:
+                          GOTOOLCHAIN: go1.26.0
                         command: |-
                           # force go modules
                           export GOPATH=""
