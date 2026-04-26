@@ -33,7 +33,7 @@ pipeline:
                   name: Vet
                   spec:
                     connectorRef: Plugins_Docker_Hub_Connector
-                    image: golang:1.24.11
+                    image: golang:1.26
                     shell: Sh
                     command: go vet ./...
               - step:
@@ -42,7 +42,7 @@ pipeline:
                   name: Test
                   spec:
                     connectorRef: Plugins_Docker_Hub_Connector
-                    image: golang:1.24.11
+                    image: golang:1.26
                     shell: Sh
                     command: go test -cover ./...
     - parallel:
@@ -70,7 +70,7 @@ pipeline:
                       name: Build Binary
                       spec:
                         connectorRef: Plugins_Docker_Hub_Connector
-                        image: golang:1.24.11
+                        image: golang:1.26
                         shell: Sh
                         command: |-
                           # force go modules
@@ -150,7 +150,7 @@ pipeline:
                       name: Build Binary
                       spec:
                         connectorRef: Plugins_Docker_Hub_Connector
-                        image: golang:1.24.11
+                        image: golang:1.26
                         shell: Sh
                         command: |-
                           # force go modules
@@ -230,7 +230,7 @@ pipeline:
                       name: Build Binary
                       spec:
                         connectorRef: Plugins_Docker_Hub_Connector
-                        image: golang:1.24.11
+                        image: golang:1.26
                         shell: Sh
                         command: |-
                           # force go modules
@@ -310,7 +310,7 @@ pipeline:
                       name: Build Binary
                       spec:
                         connectorRef: Plugins_Docker_Hub_Connector
-                        image: golang:1.24.11
+                        image: golang:1.26
                         shell: Sh
                         command: |-
                           # force go modules
@@ -399,7 +399,9 @@ pipeline:
                           # linux
                           GOOS=windows
 
-                          go build -o release/windows/amd64/drone-docker.exe ./cmd/drone-docker
+                          go build -buildvcs=false -o release/windows/amd64/drone-docker.exe ./cmd/drone-docker
+                        envVariables:
+                          GOTOOLCHAIN: go1.26.0
                   - step:
                       type: Plugin
                       name: Build and Push on Tag
@@ -469,7 +471,7 @@ pipeline:
                       name: Build Binary
                       spec:
                         connectorRef: Plugins_Docker_Hub_Connector
-                        image: golang:1.23.0
+                        image: golang:1.26
                         shell: Sh
                         command: |-
                           # force go modules
@@ -484,7 +486,7 @@ pipeline:
                           # windows
                           GOOS=windows
 
-                          go build -o release/windows/amd64/drone-docker.exe ./cmd/drone-docker
+                          go build -buildvcs=false -o release/windows/amd64/drone-docker.exe ./cmd/drone-docker
                   - step:
                       type: Plugin
                       name: Build and Push on Tag
@@ -932,7 +934,7 @@ pipeline:
                       name: Build Binaries
                       spec:
                         connectorRef: Plugins_Docker_Hub_Connector
-                        image: golang:1.24.11
+                        image: golang:1.26
                         shell: Sh
                         command: |-
                           GOOS=linux   GOARCH=amd64   go build -ldflags "-s -w" -a -tags netgo -o release/drone-buildx-linux-amd64 ./cmd/drone-docker
