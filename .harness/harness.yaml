@@ -384,10 +384,8 @@ pipeline:
                       identifier: Build_Binary
                       spec:
                         connectorRef: Plugins_Docker_Hub_Connector
-                        image: golang:1.24.3
+                        image: golang:1.23.0
                         shell: Sh
-                        envVariables:
-                          GOTOOLCHAIN: go1.26.0
                         command: |-
                           # force go modules
                           export GOPATH=""
@@ -402,6 +400,8 @@ pipeline:
                           GOOS=windows
 
                           go build -buildvcs=false -o release/windows/amd64/drone-docker.exe ./cmd/drone-docker
+                        envVariables:
+                          GOTOOLCHAIN: go1.26.0
                   - step:
                       type: Plugin
                       name: Build and Push on Tag
