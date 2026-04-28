@@ -588,7 +588,7 @@ pipeline:
                       identifier: rf_docker_build_push_tag
                       spec:
                         connectorRef: Plugins_Docker_Hub_Connector
-                        image: plugins/docker:18
+                        image: plugins/docker
                         settings:
                           username: <+secrets.getValue("harnesssecureusername")>
                           password: <+secrets.getValue("dockerHarnessSecurePwd")>
@@ -685,7 +685,7 @@ pipeline:
                       identifier: rf_docker_build_push_tag
                       spec:
                         connectorRef: Plugins_Docker_Hub_Connector
-                        image: plugins/docker:18
+                        image: plugins/docker
                         settings:
                           username: <+secrets.getValue("harnesssecureusername")>
                           password: <+secrets.getValue("dockerHarnessSecurePwd")>
