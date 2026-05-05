@@ -412,6 +412,11 @@ func Run() {
 			EnvVar: "PLUGIN_BUILDKIT_RESPONSE_HEADER_TIMEOUT",
 		},
 		cli.StringFlag{
+			Name:   "buildkit-ca-cert-path",
+			Usage:  "Path to CA certificate bundle to copy into the BuildKit container. Enables TLS verification with custom/corporate CAs for DLC S3 endpoints.",
+			EnvVar: "PLUGIN_BUILDKIT_CA_CERT_PATH",
+		},
+		cli.StringFlag{
 			Name:   "harness-self-hosted-s3-access-key",
 			Usage:  "build target",
 			EnvVar: "PLUGIN_HARNESS_SELF_HOSTED_S3_ACCESS_KEY",
@@ -568,6 +573,7 @@ func run(c *cli.Context) error {
 			BuildkitVersion:               c.String("buildkit-version"),
 			BuildkitTLSHandshakeTimeout:   c.String("buildkit-tls-handshake-timeout"),
 			BuildkitResponseHeaderTimeout: c.String("buildkit-response-header-timeout"),
+			CACertPath:                    c.String("buildkit-ca-cert-path"),
 		},
 		BaseImageRegistry:   c.String("docker.baseimageregistry"),
 		BaseImageUsername:   c.String("docker.baseimageusername"),
