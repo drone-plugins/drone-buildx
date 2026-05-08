@@ -1,0 +1,43 @@
+buildkit/version.json
+  989dc46e-2888-4d5c-9022-67ae0089a35e 2
+---
+{
+  "attestations": [
+    {
+      "entries": [
+        {
+          "accepted_lines": 1,
+          "added_lines": 1,
+          "deleted_lines": 1,
+          "hash": "989dc46e-2888-4d5c-9022-67ae0089a35e",
+          "lines": "2",
+          "overridden_lines": 0
+        }
+      ],
+      "file": "buildkit/version.json"
+    }
+  ],
+  "base_commit_sha": "78c943a11898be553c1689c80dc14c0f0959bf20",
+  "branch": "bump-buildkit-1.0.17",
+  "commit_sha": "f9dc74dc281dcb0c12e53a423de7ffe679e5bf46",
+  "commit_time": "2026-05-07T18:48:43-07:00",
+  "commit_type": "direct_commit",
+  "git_ai_version": "1.4.2",
+  "prompts": {
+    "989dc46e-2888-4d5c-9022-67ae0089a35e": {
+      "accepted_lines": 1,
+      "agent_id": {
+        "id": "989dc46e-2888-4d5c-9022-67ae0089a35e",
+        "model": "claude-opus-4-7",
+        "tool": "claude"
+      },
+      "human_author": "Soumyajit Das <soumyajit.das@harness.io>",
+      "messages": [],
+      "overriden_lines": 0,
+      "total_additions": 1,
+      "total_deletions": 1
+    }
+  },
+  "repo": "https://github.com/drone-plugins/drone-buildx",
+  "schema_version": "authorship/3.0.0"
+}
