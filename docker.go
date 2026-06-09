@@ -94,9 +94,14 @@ type (
 		SSHAgentKey                  string   // Docker build ssh agent key
 		SSHKeyPath                   string   // Docker build ssh key path
 		BuildxLoad                   bool     // Docker buildx --load
-		HarnessSelfHostedS3AccessKey string   // Harness self-hosted s3 access key
-		HarnessSelfHostedS3SecretKey string   // Harness self-hosted s3 secret key
-		HarnessSelfHostedGcpJsonKey  string   // Harness self hosted gcp json region
+		HarnessSelfHostedS3AccessKey      string // Harness self-hosted s3 access key
+		HarnessSelfHostedS3SecretKey      string // Harness self-hosted s3 secret key
+		HarnessSelfHostedGcpJsonKey       string // Harness self hosted gcp json key
+		HarnessSelfHostedAzureAccountKey  string // Harness self-hosted azure account key
+		HarnessSelfHostedAzureTenantID    string // Harness self-hosted azure tenant id
+		HarnessSelfHostedAzureClientID    string // Harness self-hosted azure client id
+		HarnessSelfHostedAzureClientSecret string // Harness self-hosted azure client secret
+		HarnessSelfHostedAzureOidcToken   string // Harness self-hosted azure oidc token
 		BuildxOptions                []string // Generic buildx options passed directly to the buildx command
 		BuildxOptionsSemicolon       string   // Buildx options separated by semicolons instead of commas
 		// Buildx Bake (opt-in)
@@ -812,6 +817,19 @@ func commandBuildxBake(build Build, builder Builder, dryrun bool, metadataFile s
 	return exec.Command(dockerExe, args...)
 }
 
+func replaceOrRemoveAzureCacheAttr(arg, attr, value string) string {
+	placeholder := attr + "=harness_placeholder_azure_creds"
+	if !strings.Contains(arg, placeholder) {
+		return arg
+	}
+	if value != "" {
+		return strings.Replace(arg, placeholder, attr+"="+value, 1)
+	}
+	arg = strings.Replace(arg, ","+placeholder, "", 1)
+	arg = strings.Replace(arg, placeholder+",", "", 1)
+	return strings.Replace(arg, placeholder, "", 1)
+}
+
 func sanitizeCacheCommand(build *Build) {
 	// Helper function to sanitize cache arguments
 	sanitizeCacheArgs := func(args []string) []string {
@@ -841,6 +859,13 @@ func sanitizeCacheCommand(build *Build) {
 					arg = strings.Replace(arg, "gcp_json_key=harness_placeholder_gcp_creds", "", 1)
 				}
 			}
+
+			// Handle azure cache credential placeholders
+			arg = replaceOrRemoveAzureCacheAttr(arg, "account_key", build.HarnessSelfHostedAzureAccountKey)
+			arg = replaceOrRemoveAzureCacheAttr(arg, "tenant_id", build.HarnessSelfHostedAzureTenantID)
+			arg = replaceOrRemoveAzureCacheAttr(arg, "client_id", build.HarnessSelfHostedAzureClientID)
+			arg = replaceOrRemoveAzureCacheAttr(arg, "client_secret", build.HarnessSelfHostedAzureClientSecret)
+			arg = replaceOrRemoveAzureCacheAttr(arg, "oidc_token", build.HarnessSelfHostedAzureOidcToken)
 
 			if build.PathStyle && strings.Contains(arg, "type=s3") {
 				if strings.Contains(arg, "use_path_style=false") {

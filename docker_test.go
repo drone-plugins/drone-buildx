@@ -391,6 +391,38 @@ func TestSanitizeCacheCommand(t *testing.T) {
 			expectedCacheTo:   []string{},
 		},
 		{
+			name: "Replace Azure placeholders in CacheFrom and CacheTo",
+			build: Build{
+				CacheFrom: []string{"type=azure,account_name=myaccount,container_name=cache,account_key=harness_placeholder_azure_creds,tenant_id=harness_placeholder_azure_creds,client_id=harness_placeholder_azure_creds,client_secret=harness_placeholder_azure_creds"},
+				CacheTo:   []string{"type=azure,account_name=myaccount,container_name=cache,account_key=harness_placeholder_azure_creds,tenant_id=harness_placeholder_azure_creds,client_id=harness_placeholder_azure_creds,client_secret=harness_placeholder_azure_creds,mode=max"},
+				HarnessSelfHostedAzureAccountKey:   "actual_account_key",
+				HarnessSelfHostedAzureTenantID:     "actual_tenant_id",
+				HarnessSelfHostedAzureClientID:     "actual_client_id",
+				HarnessSelfHostedAzureClientSecret: "actual_client_secret",
+			},
+			expectedCacheFrom: []string{"type=azure,account_name=myaccount,container_name=cache,account_key=actual_account_key,tenant_id=actual_tenant_id,client_id=actual_client_id,client_secret=actual_client_secret"},
+			expectedCacheTo:   []string{"type=azure,account_name=myaccount,container_name=cache,account_key=actual_account_key,tenant_id=actual_tenant_id,client_id=actual_client_id,client_secret=actual_client_secret,mode=max"},
+		},
+		{
+			name: "Remove Azure placeholders when credentials are empty",
+			build: Build{
+				CacheFrom: []string{"type=azure,account_name=myaccount,container_name=cache,account_key=harness_placeholder_azure_creds,oidc_token=harness_placeholder_azure_creds"},
+				CacheTo:   []string{"type=azure,account_name=myaccount,container_name=cache,client_secret=harness_placeholder_azure_creds"},
+			},
+			expectedCacheFrom: []string{"type=azure,account_name=myaccount,container_name=cache"},
+			expectedCacheTo:   []string{"type=azure,account_name=myaccount,container_name=cache"},
+		},
+		{
+			name: "Replace Azure oidc_token placeholder",
+			build: Build{
+				CacheFrom:                       []string{"type=azure,account_name=myaccount,container_name=cache,tenant_id=tenant,client_id=client,oidc_token=harness_placeholder_azure_creds"},
+				CacheTo:                         []string{},
+				HarnessSelfHostedAzureOidcToken: "actual_oidc_token",
+			},
+			expectedCacheFrom: []string{"type=azure,account_name=myaccount,container_name=cache,tenant_id=tenant,client_id=client,oidc_token=actual_oidc_token"},
+			expectedCacheTo:   []string{},
+		},
+		{
 			name: "No placeholders in CacheFrom and CacheTo",
 			build: Build{
 				CacheFrom: []string{"type=s3,bucket=test"},
