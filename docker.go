@@ -127,6 +127,7 @@ type (
 		PushOnly            bool    // Push only mode, skips build process
 		SourceTarPath       string  // Path to Docker image tar file to load and push
 		TarPath             string  // Path to save Docker image as tar file
+		BuildxOutputFormat  string  // Buildx output format for direct tar output (docker, oci)
 		SourceImage         string  // Source image to push (optional)
 		BuildkitInheritAuth bool    // Inherit auth from docker daemon
 	}
@@ -420,7 +421,17 @@ func (p Plugin) Exec() error {
 	} else {
 		// Classic path: add proxy build args and run buildx build
 		addProxyBuildArgs(&p.Build)
-		cmds = append(cmds, commandBuildx(p.Build, p.Builder, p.Dryrun, p.MetadataFile, p.TarPath)) // docker build
+
+		// Ensure tar output directory exists before buildx writes to it
+		if p.TarPath != "" && p.Dryrun && p.BuildxOutputFormat != "" {
+			dir := filepath.Dir(p.TarPath)
+			if err := os.MkdirAll(dir, 0755); err != nil {
+				return fmt.Errorf("error: failed to create directory for tar file: %v", err)
+			}
+			fmt.Printf("Using direct buildx output (format: %s) to: %s\n", p.BuildxOutputFormat, p.TarPath)
+		}
+
+		cmds = append(cmds, commandBuildx(p.Build, p.Builder, p.Dryrun, p.MetadataFile, p.TarPath, p.BuildxOutputFormat)) // docker build
 	}
 
 	// execute all commands in batch mode.
@@ -473,7 +484,7 @@ func (p Plugin) Exec() error {
 		}
 	}
 
-	if p.Build.BakeFile == "" && p.TarPath != "" && p.Dryrun {
+	if p.Build.BakeFile == "" && p.TarPath != "" && p.Dryrun && p.BuildxOutputFormat == "" {
 		if len(p.Build.Tags) > 0 {
 			tag := p.Build.Tags[0]
 			fullImageName := fmt.Sprintf("%s:%s", p.Build.Repo, tag)
@@ -656,7 +667,7 @@ func commandInfo() *exec.Cmd {
 }
 
 // helper function to create the docker buildx command.
-func commandBuildx(build Build, builder Builder, dryrun bool, metadataFile string, tarPath string) *exec.Cmd {
+func commandBuildx(build Build, builder Builder, dryrun bool, metadataFile string, tarPath string, outputFormat string) *exec.Cmd {
 	args := []string{
 		"buildx",
 		"build",
@@ -673,7 +684,9 @@ func commandBuildx(build Build, builder Builder, dryrun bool, metadataFile strin
 		args = append(args, "-t", fmt.Sprintf("%s:%s", build.Repo, t))
 	}
 	if dryrun {
-		if build.BuildxLoad || tarPath != "" {
+		if tarPath != "" && outputFormat != "" {
+			args = append(args, fmt.Sprintf("--output=type=%s,dest=%s", outputFormat, tarPath))
+		} else if build.BuildxLoad || tarPath != "" {
 			args = append(args, "--load")
 		}
 	} else {
