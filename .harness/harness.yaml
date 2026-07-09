@@ -918,7 +918,7 @@ pipeline:
                       identifier: Plugin_1
                       spec:
                         connectorRef: Plugins_Docker_Hub_Connector
-                        image: plugins/docker
+                        image: plugins/docker:windows-ltsc2025-amd64
                       when:
                         stageStatus: Success
                         condition: <+codebase.build.type> == "tag"
