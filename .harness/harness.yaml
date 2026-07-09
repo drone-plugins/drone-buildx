@@ -929,6 +929,9 @@ pipeline:
                       when:
                         stageStatus: Success
                         condition: <+codebase.build.type> == "tag"
+            when:
+              pipelineStatus: Success
+              condition: "false"
     - parallel:
         - stage:
             identifier: Manifest
