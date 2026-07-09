@@ -869,6 +869,47 @@ pipeline:
                         condition: <+codebase.build.type> == "branch"
               buildIntelligence:
                 enabled: false
+        - stage:
+            name: win-ltsc-2025-amd64
+            identifier: winltsc2025amd64
+            description: ""
+            type: CI
+            spec:
+              cloneCodebase: true
+              caching:
+                enabled: true
+                override: false
+              buildIntelligence:
+                enabled: true
+              infrastructure:
+                type: VM
+                spec:
+                  type: Pool
+                  spec:
+                    poolName: windows-2025
+                    os: Linux
+              execution:
+                steps:
+                  - step:
+                      type: Run
+                      name: Build Binary
+                      identifier: Build_Binary
+                      spec:
+                        shell: Sh
+                        command: |-
+                          # force go modules
+                          export GOPATH=""
+
+                          # disable cgo
+                          export CGO_ENABLED=0
+
+                          set -e
+                          set -x
+
+                          # windows
+                          GOOS=windows
+
+                          go build -buildvcs=false -o release/windows/amd64/drone-docker.exe ./cmd/drone-docker
     - parallel:
         - stage:
             identifier: Manifest
