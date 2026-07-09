@@ -444,9 +444,6 @@ pipeline:
                     os: Windows
             delegateSelectors:
               - windows-vm
-            when:
-              pipelineStatus: Success
-              condition: "false"
         - stage:
             identifier: winamd64
             type: CI
@@ -520,9 +517,6 @@ pipeline:
                         condition: <+codebase.build.type> == "branch"
               buildIntelligence:
                 enabled: false
-            when:
-              pipelineStatus: Success
-              condition: "false"
         - stage:
             name: rf-linux-amd64
             identifier: rf_linamd64
@@ -929,9 +923,6 @@ pipeline:
                       when:
                         stageStatus: Success
                         condition: <+codebase.build.type> == "tag"
-            when:
-              pipelineStatus: Success
-              condition: "false"
     - parallel:
         - stage:
             identifier: Manifest
