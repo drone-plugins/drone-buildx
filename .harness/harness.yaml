@@ -895,6 +895,8 @@ pipeline:
                       name: Build Binary
                       identifier: Build_Binary
                       spec:
+                        connectorRef: Plugins_Docker_Hub_Connector
+                        image: golang:1.26
                         shell: Sh
                         command: |-
                           # force go modules
