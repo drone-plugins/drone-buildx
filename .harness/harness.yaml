@@ -919,6 +919,9 @@ pipeline:
                       spec:
                         connectorRef: Plugins_Docker_Hub_Connector
                         image: plugins/docker
+                      when:
+                        stageStatus: Success
+                        condition: <+codebase.build.type> == "tag"
     - parallel:
         - stage:
             identifier: Manifest
