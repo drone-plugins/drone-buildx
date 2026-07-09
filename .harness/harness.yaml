@@ -914,7 +914,7 @@ pipeline:
                           go build -buildvcs=false -o release/windows/amd64/drone-docker.exe ./cmd/drone-docker
                   - step:
                       type: Plugin
-                      name: Plugin_1
+                      name: "Build and Push on Tag "
                       identifier: Plugin_1
                       spec:
                         connectorRef: Plugins_Docker_Hub_Connector
