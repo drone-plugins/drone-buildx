@@ -10,12 +10,14 @@ import (
 
 func TestCommandBuildx(t *testing.T) {
 	tcs := []struct {
-		name     string
-		build    Build
-		builder  Builder
-		dryrun   bool
-		metadata string
-		want     *exec.Cmd
+		name         string
+		build        Build
+		builder      Builder
+		dryrun       bool
+		metadata     string
+		tarPath      string
+		outputFormat string
+		want         *exec.Cmd
 	}{
 		{
 			name: "secret from env var",
@@ -234,12 +236,110 @@ func TestCommandBuildx(t *testing.T) {
 				".",
 			),
 		},
+		{
+			name: "dryrun with tarPath and output format docker uses direct output",
+			build: Build{
+				Name:       "plugins/drone-docker:latest",
+				Dockerfile: "Dockerfile",
+				Context:    ".",
+				Repo:       "plugins/drone-docker",
+				Tags:       []string{"latest"},
+			},
+			dryrun:       true,
+			tarPath:      "/tmp/image.tar",
+			outputFormat: "docker",
+			want: exec.Command(
+				dockerExe,
+				"buildx",
+				"build",
+				"--rm=true",
+				"-f",
+				"Dockerfile",
+				"-t",
+				"plugins/drone-docker:latest",
+				"--output=type=docker,dest=/tmp/image.tar",
+				".",
+			),
+		},
+		{
+			name: "dryrun with tarPath and output format oci uses direct output",
+			build: Build{
+				Name:       "plugins/drone-docker:latest",
+				Dockerfile: "Dockerfile",
+				Context:    ".",
+				Repo:       "plugins/drone-docker",
+				Tags:       []string{"latest"},
+			},
+			dryrun:       true,
+			tarPath:      "/tmp/image.tar",
+			outputFormat: "oci",
+			want: exec.Command(
+				dockerExe,
+				"buildx",
+				"build",
+				"--rm=true",
+				"-f",
+				"Dockerfile",
+				"-t",
+				"plugins/drone-docker:latest",
+				"--output=type=oci,dest=/tmp/image.tar",
+				".",
+			),
+		},
+		{
+			name: "dryrun with tarPath but no output format falls back to --load",
+			build: Build{
+				Name:       "plugins/drone-docker:latest",
+				Dockerfile: "Dockerfile",
+				Context:    ".",
+				Repo:       "plugins/drone-docker",
+				Tags:       []string{"latest"},
+			},
+			dryrun:  true,
+			tarPath: "/tmp/image.tar",
+			want: exec.Command(
+				dockerExe,
+				"buildx",
+				"build",
+				"--rm=true",
+				"-f",
+				"Dockerfile",
+				"-t",
+				"plugins/drone-docker:latest",
+				"--load",
+				".",
+			),
+		},
+		{
+			name: "dryrun with BuildxLoad but no tarPath still uses --load",
+			build: Build{
+				Name:       "plugins/drone-docker:latest",
+				Dockerfile: "Dockerfile",
+				Context:    ".",
+				Repo:       "plugins/drone-docker",
+				Tags:       []string{"latest"},
+				BuildxLoad: true,
+			},
+			dryrun: true,
+			want: exec.Command(
+				dockerExe,
+				"buildx",
+				"build",
+				"--rm=true",
+				"-f",
+				"Dockerfile",
+				"-t",
+				"plugins/drone-docker:latest",
+				"--load",
+				".",
+			),
+		},
 	}
 
 	for _, tc := range tcs {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
-			cmd := commandBuildx(tc.build, tc.builder, tc.dryrun, tc.metadata, "")
+			cmd := commandBuildx(tc.build, tc.builder, tc.dryrun, tc.metadata, tc.tarPath, tc.outputFormat)
 			if !reflect.DeepEqual(cmd.String(), tc.want.String()) {
 				t.Errorf("Got cmd %v, want %v", cmd, tc.want)
 			}

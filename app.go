@@ -491,6 +491,11 @@ func Run() {
 			Usage:  "path to save Docker image as tar file",
 			EnvVar: "PLUGIN_TAR_PATH, PLUGIN_DESTINATION_TAR_PATH",
 		},
+		cli.StringFlag{
+			Name:   "buildx-output-format",
+			Usage:  "buildx output format for direct tar output, bypasses --load and docker save (docker, oci)",
+			EnvVar: "PLUGIN_BUILDX_OUTPUT_FORMAT",
+		},
 		cli.BoolFlag{
 			Name:   "buildkit-inherit-auth",
 			Usage:  "inherit auth from docker daemon",
@@ -606,6 +611,7 @@ func run(c *cli.Context) error {
 		SourceImage:         c.String("source-image"),
 		SourceTarPath:       c.String("source-tar-path"),
 		TarPath:             c.String("tar-path"),
+		BuildxOutputFormat:  c.String("buildx-output-format"),
 		BuildkitInheritAuth: c.Bool("buildkit-inherit-auth"),
 	}
 

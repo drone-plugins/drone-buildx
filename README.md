@@ -145,6 +145,33 @@ envVariables:
   PLUGIN_BUILDX_OPTIONS_SEMICOLON: "--platform=linux/amd64,linux/arm64;--provenance=false;--output=type=tar,dest=image.tar"
 ```
 
+### Direct Tar Output (Build + Scan optimization)
+
+When using the Build + Scan + Push flow on Kubernetes (dry-run mode with tar path), the plugin previously performed a costly double serialization: `--load` (BuildKit to Docker daemon) followed by `docker save` (daemon to tar file). For large images this could account for 70%+ of the total build time.
+
+The `PLUGIN_BUILDX_OUTPUT_FORMAT` setting eliminates this by instructing buildx to write the image tar directly in a single pass using `--output type=<format>,dest=<path>`.
+
+Inputs:
+- `PLUGIN_BUILDX_OUTPUT_FORMAT`: The buildx output format to use for direct tar export. Supported values: `docker` (Docker archive), `oci` (OCI layout). When set alongside `PLUGIN_TAR_PATH` and `PLUGIN_DRY_RUN=true`, the plugin uses `--output` instead of `--load` + `docker save`.
+- `PLUGIN_TAR_PATH`: Destination path for the image tar file.
+- `PLUGIN_DRY_RUN`: Must be `true` to activate the tar export flow.
+
+Behavior:
+- When `PLUGIN_BUILDX_OUTPUT_FORMAT` is set: buildx writes directly to the tar path (`--output type=<format>,dest=<path>`). No Docker daemon load or save occurs.
+- When `PLUGIN_BUILDX_OUTPUT_FORMAT` is not set: the legacy flow (`--load` + `docker save`) is used for backward compatibility.
+- The `docker` format produces a tar compatible with `docker load -i`.
+- The `oci` format produces an OCI image layout (useful for multi-platform images or OCI-native scanners).
+
+Example (Build + Scan + Push on K8s):
+```yaml
+envVariables:
+  PLUGIN_DRY_RUN: "true"
+  PLUGIN_TAR_PATH: /shared/image.tar
+  PLUGIN_BUILDX_OUTPUT_FORMAT: docker
+```
+
+This replaces the previous flow of ~69 min (for a 1.6GB image) with a single ~5-10 min write.
+
 ### Buildx Bake mode (opt-in)
 
 Use Docker Buildx Bake when you have a bake file (HCL/JSON/Compose) and want build orchestration across multiple targets and registries.
