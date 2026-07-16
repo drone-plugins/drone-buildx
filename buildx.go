@@ -25,15 +25,8 @@ func cmdSetupBuildx(builder Builder, driverOpts []string, inheritAuth bool) *exe
 	for _, opt := range driverOpts {
 		args = append(args, "--driver-opt", opt)
 	}
-	if harnessHttpProxy := os.Getenv("HARNESS_HTTP_PROXY"); harnessHttpProxy != "" {
-		args = append(args, "--driver-opt", fmt.Sprintf("env.http_proxy=%s", harnessHttpProxy))
-
-		if harnessHttpsProxy := os.Getenv("HARNESS_HTTPS_PROXY"); harnessHttpsProxy != "" {
-			args = append(args, "--driver-opt", fmt.Sprintf("env.https_proxy=%s", harnessHttpsProxy))
-		}
-
-		args = append(args, "--driver-opt", "network=host")
-	}
+	args = appendProxyDriverOpts(args)
+	args = appendHarnessCADriverOpts(args)
 
 	if builder.RemoteConn != "" && builder.Driver == remoteDriver {
 		args = append(args, builder.RemoteConn)
@@ -88,4 +81,60 @@ func cmdInspectBuildx(name string) *exec.Cmd {
 func cmdRemoveBuildx(name string) *exec.Cmd {
 	args := []string{"buildx", "rm", name}
 	return exec.Command(dockerExe, args...)
+}
+
+// appendProxyDriverOpts forwards proxy env into the buildx docker-container
+// builder. Uses getProxyValue precedence: standard -> uppercase -> HARNESS_.
+// no_proxy values with commas are quoted so buildx's CSV parser does not split them.
+func appendProxyDriverOpts(args []string) []string {
+	httpProxy := getProxyValue("http_proxy")
+	httpsProxy := getProxyValue("https_proxy")
+	noProxy := getProxyValue("no_proxy")
+
+	if httpProxy == "" && httpsProxy == "" && noProxy == "" {
+		return args
+	}
+
+	if httpProxy != "" {
+		args = append(args, "--driver-opt", fmt.Sprintf("env.http_proxy=%s", httpProxy))
+	}
+	if httpsProxy != "" {
+		args = append(args, "--driver-opt", fmt.Sprintf("env.https_proxy=%s", httpsProxy))
+	}
+	if noProxy != "" {
+		opt := fmt.Sprintf("env.no_proxy=%s", noProxy)
+		// buildx splits --driver-opt on commas unless the k=v pair is quoted.
+		if strings.Contains(noProxy, ",") {
+			opt = `"` + opt + `"`
+		}
+		args = append(args, "--driver-opt", opt)
+	}
+	if httpProxy != "" || httpsProxy != "" {
+		args = append(args, "--driver-opt", "network=host")
+	}
+	return args
+}
+
+// appendHarnessCADriverOpts forwards HARNESS_CA_PATH (and file content when
+// readable) into the BuildKit container. A host path alone is not visible
+// inside the builder filesystem, so content is passed via env.HARNESS_CA_CERT
+// for the custom BuildKit entrypoint to install into the trust store.
+func appendHarnessCADriverOpts(args []string) []string {
+	caPath := os.Getenv("HARNESS_CA_PATH")
+	if caPath == "" {
+		return args
+	}
+
+	args = append(args, "--driver-opt", fmt.Sprintf("env.HARNESS_CA_PATH=%s", caPath))
+	content, err := os.ReadFile(caPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			fmt.Fprintf(os.Stderr, "Warning: HARNESS_CA_PATH is set to '%s' but the file does not exist\n", caPath)
+		} else {
+			fmt.Fprintf(os.Stderr, "Warning: unable to read HARNESS_CA_PATH '%s': %v\n", caPath, err)
+		}
+		return args
+	}
+	args = append(args, "--driver-opt", fmt.Sprintf("env.HARNESS_CA_CERT=%s", string(content)))
+	return args
 }
