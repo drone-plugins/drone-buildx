@@ -544,7 +544,7 @@ pipeline:
                         build:
                           type: branch
                           spec:
-                            branch: main
+                            branch: CI-23807
                         cloneDirectory: rf-plugins
                   - step:
                       type: Run
@@ -641,7 +641,7 @@ pipeline:
                         build:
                           type: branch
                           spec:
-                            branch: main
+                            branch: CI-23807
                         cloneDirectory: rf-plugins
                   - step:
                       type: Run
