@@ -881,7 +881,7 @@ pipeline:
                   type: Pool
                   spec:
                     poolName: windows-2025
-                    os: Linux
+                    os: Windows
               execution:
                 steps:
                   - step:
