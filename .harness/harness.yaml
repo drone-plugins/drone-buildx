@@ -975,15 +975,22 @@ pipeline:
                       identifier: build_amd64ltsc2025
                       spec:
                         connectorRef: Plugins_Docker_Hub_Connector
-                        image: golang:1.23.0
+                        image: golang:1.26
                         shell: Sh
                         command: |-
+                          # force go modules
+                          export GOPATH=""
+
                           # disable cgo
                           export CGO_ENABLED=0
 
-                          go build -o release/windows/amd64/drone-docker.exe ./cmd/drone-docker
-                        envVariables:
-                          CGO_ENABLED: "0"
+                          set -e
+                          set -x
+
+                          # windows
+                          GOOS=windows
+
+                          go build -buildvcs=false -o release/windows/amd64/drone-docker.exe ./cmd/drone-docker
                   - step:
                       type: Plugin
                       name: RF Build and Push on Tag
