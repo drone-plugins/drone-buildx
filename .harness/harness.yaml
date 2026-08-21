@@ -245,7 +245,7 @@ pipeline:
                           # linux
                           export GOOS=linux GOARCH=arm64
 
-                          go build -a -tags netgo -o release/linux/arm64/drone-docker ./cmd/drone-docker
+                          go build -buildvcs=false -a -tags netgo -o release/linux/arm64/drone-docker ./cmd/drone-docker
                   - step:
                       type: Run
                       name: Build Tarball
@@ -325,7 +325,7 @@ pipeline:
                           # linux
                           export GOOS=linux GOARCH=arm64
 
-                          go build -a -tags netgo -o release/linux/arm64/drone-heroku ./cmd/drone-heroku
+                          go build -buildvcs=false -a -tags netgo -o release/linux/arm64/drone-heroku ./cmd/drone-heroku
                   - step:
                       type: Run
                       name: Build Tarball
@@ -663,7 +663,7 @@ pipeline:
 
                           export GOOS=linux GOARCH=arm64
 
-                          go build -a -tags netgo -o release/linux/arm64/drone-docker ./cmd/drone-docker
+                          go build -buildvcs=false -a -tags netgo -o release/linux/arm64/drone-docker ./cmd/drone-docker
                   - step:
                       type: Run
                       name: Build Tarball
