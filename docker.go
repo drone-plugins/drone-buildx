@@ -310,24 +310,34 @@ func (p Plugin) Exec() error {
 			loadedBuildkitVersion = false
 		}
 
+		fmt.Printf("[DEBUG] version file %s: loaded=%t version=%q\n", versionFilePath, loadedBuildkitVersion, config.BuildkitVersion)
+
 		// Read the tarball file from the filesystem
 		data, err := os.ReadFile(tarballFilePath)
 		if err != nil {
+			fmt.Printf("[DEBUG] unable to read buildkit tarball %s: %s\n", tarballFilePath, err)
 			loadedBuildkitTarball = false
 		} else {
+			fmt.Printf("[DEBUG] read buildkit tarball %s (%d bytes)\n", tarballFilePath, len(data))
 			loadCmd := commandLoad()
 			loadCmd.Stdin = bytes.NewReader(data)
 
 			// Attempt to load the tarball
-			if err := loadCmd.Run(); err != nil {
-				fmt.Printf("Error while loading buildkit image: %s\n", err)
+			trace(loadCmd)
+			if out, err := loadCmd.CombinedOutput(); err != nil {
+				fmt.Printf("Error while loading buildkit image: %s\noutput:\n%s\n", err, string(out))
 				loadedBuildkitTarball = false
+			} else {
+				fmt.Printf("[DEBUG] docker load output:\n%s\n", string(out))
 			}
 		}
 	} else {
+		fmt.Printf("[DEBUG] use-loaded-buildkit is disabled, skipping tarball load\n")
 		loadedBuildkitVersion = false
 		loadedBuildkitTarball = false
 	}
+
+	debugDockerEnv()
 
 	if p.Builder.Driver != "" && p.Builder.Driver != defaultDriver {
 		var (
@@ -342,17 +352,25 @@ func (p Plugin) Exec() error {
 				updateImageVersion(&p.Builder.DriverOptsNew, p.Builder.BuildkitVersion)
 			}
 			createCmd := cmdSetupBuildx(p.Builder, p.Builder.DriverOptsNew, p.BuildkitInheritAuth)
+			trace(createCmd)
+			var createErrOut bytes.Buffer
+			createCmd.Stderr = &createErrOut
 			raw, err = createCmd.Output()
 			if err != nil {
-				fmt.Printf("Unable to setup buildx with new driver opts: %s\n", err)
+				fmt.Printf("Unable to setup buildx with new driver opts: %s\nstderr:\n%s\n", err, createErrOut.String())
 				// Mark that the fallback will be used
 				shouldFallback = true
 			} else {
 				p.Builder.Name = strings.TrimSuffix(string(raw), "\n")
+				fmt.Printf("[DEBUG] created builder (new driver opts): %q\n", p.Builder.Name)
 				// If builder creation is successful, inspect the builder
 				inspectCmd := cmdInspectBuildx(p.Builder.Name)
-				if err := inspectCmd.Run(); err != nil {
+				trace(inspectCmd)
+				out, err := inspectCmd.CombinedOutput()
+				fmt.Printf("[DEBUG] inspect --bootstrap output (new driver opts):\n%s\n", string(out))
+				if err != nil {
 					fmt.Printf("Error while inspecting buildx builder with new driver opts: %s\n", err)
+					dumpBuildkitDiagnostics(p.Builder.Name)
 					// Mark that the fallback will be used
 					shouldFallback = true
 					p.Builder.Name = ""
@@ -374,13 +392,22 @@ func (p Plugin) Exec() error {
 				updateImageVersion(&p.Builder.DriverOpts, version)
 			}
 			createCmd := cmdSetupBuildx(p.Builder, p.Builder.DriverOpts, p.BuildkitInheritAuth)
+			trace(createCmd)
+			var createErrOut bytes.Buffer
+			createCmd.Stderr = &createErrOut
 			raw, err = createCmd.Output()
 			if err != nil {
+				fmt.Printf("[DEBUG] buildx create stderr:\n%s\n", createErrOut.String())
 				return fmt.Errorf("error while creating buildx builder: %s and err: %s", string(raw), err)
 			}
 			p.Builder.Name = strings.TrimSuffix(string(raw), "\n")
+			fmt.Printf("[DEBUG] created builder (fallback): %q\n", p.Builder.Name)
 			inspectCmd := cmdInspectBuildx(p.Builder.Name)
-			if err := inspectCmd.Run(); err != nil {
+			trace(inspectCmd)
+			out, err := inspectCmd.CombinedOutput()
+			fmt.Printf("[DEBUG] inspect --bootstrap output (fallback):\n%s\n", string(out))
+			if err != nil {
+				dumpBuildkitDiagnostics(p.Builder.Name)
 				return fmt.Errorf("error while bootstraping buildx builder: %s", err)
 			}
 		}
@@ -1132,6 +1159,68 @@ func writeSSHPrivateKey(key string) (path string, err error) {
 // tag so that it can be extracted and displayed in the logs.
 func trace(cmd *exec.Cmd) {
 	fmt.Fprintf(os.Stdout, "+ %s\n", strings.Join(cmd.Args, " "))
+}
+
+// debugRun runs a diagnostic command and prints its output. Failures are
+// reported but never propagated: diagnostics must not alter build behaviour.
+func debugRun(label string, args ...string) {
+	cmd := exec.Command(dockerExe, args...)
+	out, err := cmd.CombinedOutput()
+	fmt.Printf("[DEBUG] %s ($ %s %s)\n%s\n", label, dockerExe, strings.Join(args, " "), string(out))
+	if err != nil {
+		fmt.Printf("[DEBUG] %s failed: %s\n", label, err)
+	}
+}
+
+// debugDockerEnv prints the daemon/buildx state and the environment variables
+// that influence the driver-opts and buildkitd flags passed to buildx create.
+func debugDockerEnv() {
+	fmt.Println("[DEBUG] ===== docker/buildx environment =====")
+	debugRun("docker version", "version")
+	debugRun("buildx version", "buildx", "version")
+	debugRun("docker info", "info")
+	debugRun("images", "images")
+	debugRun("existing builders", "buildx", "ls")
+
+	fmt.Println("[DEBUG] ----- relevant env vars -----")
+	for _, name := range []string{
+		"http_proxy", "https_proxy", "no_proxy",
+		"HTTP_PROXY", "HTTPS_PROXY", "NO_PROXY",
+		"HARNESS_HTTP_PROXY", "HARNESS_HTTPS_PROXY", "HARNESS_NO_PROXY",
+		"HARNESS_CA_PATH", "AWS_WEB_IDENTITY_TOKEN_FILE",
+		"PLUGIN_BUILDER_DRIVER", "PLUGIN_BUILDER_DAEMON_CONFIG",
+		"PLUGIN_BUILDKIT_TLS_HANDSHAKE_TIMEOUT", "PLUGIN_BUILDKIT_RESPONSE_HEADER_TIMEOUT",
+		"PLUGIN_BUILDKIT_VERSION", "PLUGIN_USE_LOADED_BUILDKIT", "PLUGIN_BUILDKIT_ASSETS_DIR",
+		"PLUGIN_DRIVER_OPTS", "PLUGIN_DRIVER_OPTS_NEW", "PLUGIN_BUILDKIT_INHERIT_AUTH",
+	} {
+		if v, ok := os.LookupEnv(name); ok {
+			fmt.Printf("[DEBUG] env %s=%q\n", name, v)
+		}
+	}
+	if caPath := os.Getenv("HARNESS_CA_PATH"); caPath != "" {
+		if info, err := os.Stat(caPath); err != nil {
+			fmt.Printf("[DEBUG] HARNESS_CA_PATH %s stat error: %s\n", caPath, err)
+		} else {
+			fmt.Printf("[DEBUG] HARNESS_CA_PATH %s exists (%d bytes)\n", caPath, info.Size())
+		}
+	}
+	fmt.Println("[DEBUG] =====================================")
+}
+
+// dumpBuildkitDiagnostics prints everything needed to explain why the buildkit
+// builder container failed to bootstrap: container state, exit code and the
+// container's own logs.
+func dumpBuildkitDiagnostics(builderName string) {
+	container := fmt.Sprintf("buildx_buildkit_%s0", builderName)
+	fmt.Printf("[DEBUG] ===== bootstrap failure diagnostics for %s =====\n", container)
+	debugRun("all containers", "ps", "-a")
+	debugRun("container state", "inspect", container, "--format",
+		"status={{.State.Status}} exit={{.State.ExitCode}} err={{.State.Error}} oom={{.State.OOMKilled}} started={{.State.StartedAt}} finished={{.State.FinishedAt}}")
+	debugRun("container entrypoint/env", "inspect", container, "--format",
+		"entrypoint={{.Config.Entrypoint}} cmd={{.Config.Cmd}} image={{.Config.Image}} env={{.Config.Env}}")
+	debugRun("container logs", "logs", container)
+	debugRun("builders after failure", "buildx", "ls")
+	fmt.Println("[DEBUG] ===============================================")
 }
 
 // Helper function to update image version in driver options
