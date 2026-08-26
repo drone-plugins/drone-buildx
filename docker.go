@@ -335,11 +335,13 @@ func (p Plugin) Exec() error {
 			err error
 		)
 
+		tarballLoaded := loadedBuildkitTarball && loadedBuildkitVersion
+
 		shouldFallback := true
 		if len(p.Builder.DriverOptsNew) != 0 {
-			if p.Builder.BuildkitVersion != "" {
-				fmt.Printf("Using BuildKit Version with new driver opts: %s\n", p.Builder.BuildkitVersion)
-				updateImageVersion(&p.Builder.DriverOptsNew, p.Builder.BuildkitVersion)
+			if version := resolveBuildkitImage(p.Builder, tarballLoaded, config); version != "" {
+				fmt.Printf("Using BuildKit Version with new driver opts: %s\n", version)
+				updateImageVersion(&p.Builder.DriverOptsNew, version)
 			}
 			createCmd := cmdSetupBuildx(p.Builder, p.Builder.DriverOptsNew, p.BuildkitInheritAuth)
 			raw, err = createCmd.Output()
@@ -363,13 +365,7 @@ func (p Plugin) Exec() error {
 		}
 		if shouldFallback {
 			// Main code block
-			if (p.Builder.UseLoadedBuildkit && loadedBuildkitTarball && loadedBuildkitVersion) || p.Builder.BuildkitVersion != "" {
-				var version string
-				if p.Builder.BuildkitVersion != "" {
-					version = p.Builder.BuildkitVersion
-				} else if p.Builder.UseLoadedBuildkit && loadedBuildkitTarball && loadedBuildkitVersion {
-					version = config.BuildkitVersion
-				}
+			if version := resolveBuildkitImage(p.Builder, tarballLoaded, config); version != "" {
 				fmt.Printf("Using BuildKit Version: %s\n", version)
 				updateImageVersion(&p.Builder.DriverOpts, version)
 			}
@@ -1134,13 +1130,32 @@ func trace(cmd *exec.Cmd) {
 	fmt.Fprintf(os.Stdout, "+ %s\n", strings.Join(cmd.Args, " "))
 }
 
-// Helper function to update image version in driver options
+// resolveBuildkitImage returns the buildkit image reference the builder should
+// use. An explicitly configured version wins, otherwise the image loaded from
+// the bundled tarball is used. An empty result means neither is available and
+// buildx should fall back to its own default.
+func resolveBuildkitImage(builder Builder, tarballLoaded bool, config BuildKitConfig) string {
+	if builder.BuildkitVersion != "" {
+		return builder.BuildkitVersion
+	}
+	if builder.UseLoadedBuildkit && tarballLoaded {
+		return config.BuildkitVersion
+	}
+	return ""
+}
+
+// updateImageVersion pins the buildkit image used by the docker-container
+// driver. The option is appended when absent: without it buildx falls back to
+// its default moby/buildkit image and pulls it from Docker Hub, which fails in
+// air-gapped environments even though the image was loaded from the tarball.
 func updateImageVersion(driverOpts *[]string, version string) {
 	for i, opt := range *driverOpts {
 		if strings.HasPrefix(opt, "image=") {
 			(*driverOpts)[i] = fmt.Sprintf("image=%s", version)
+			return
 		}
 	}
+	*driverOpts = append(*driverOpts, fmt.Sprintf("image=%s", version))
 }
 
 // pushOnly handles pushing images without building them
