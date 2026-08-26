@@ -353,12 +353,15 @@ func (p Plugin) Exec() error {
 				p.Builder.Name = strings.TrimSuffix(string(raw), "\n")
 				// If builder creation is successful, inspect the builder
 				inspectCmd := cmdInspectBuildx(p.Builder.Name)
-				if err := inspectCmd.Run(); err != nil {
-					fmt.Printf("Error while inspecting buildx builder with new driver opts: %s\n", err)
+				if out, err := inspectCmd.CombinedOutput(); err != nil {
+					fmt.Printf("Error while inspecting buildx builder with new driver opts: %s\noutput:\n%s\n", err, string(out))
 					// Mark that the fallback will be used
 					shouldFallback = true
 					p.Builder.Name = ""
 				} else {
+					if p.Daemon.Debug {
+						fmt.Printf("Buildx builder inspection result:\n%s\n", string(out))
+					}
 					shouldFallback = false
 				}
 			}
@@ -376,8 +379,14 @@ func (p Plugin) Exec() error {
 			}
 			p.Builder.Name = strings.TrimSuffix(string(raw), "\n")
 			inspectCmd := cmdInspectBuildx(p.Builder.Name)
-			if err := inspectCmd.Run(); err != nil {
-				return fmt.Errorf("error while bootstraping buildx builder: %s", err)
+			if out, err := inspectCmd.CombinedOutput(); err != nil {
+				// Do not fail the build on a bootstrap inspect error: the
+				// underlying issues (e.g. buildx's GPU capability probe or a
+				// registry freshness pull) are typically non-fatal and buildkit
+				// still boots. Surface the output and continue.
+				fmt.Printf("Error while bootstraping buildx builder: %s\noutput:\n%s\n", err, string(out))
+			} else if p.Daemon.Debug {
+				fmt.Printf("Buildx builder inspection result:\n%s\n", string(out))
 			}
 		}
 
