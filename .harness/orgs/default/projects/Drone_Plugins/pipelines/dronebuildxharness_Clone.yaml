@@ -518,8 +518,8 @@ pipeline:
               buildIntelligence:
                 enabled: false
         - stage:
-            name: rf-linux-amd64
-            identifier: rf_linamd64
+            name: hhi-linux-amd64
+            identifier: hhi_linamd64
             description: ""
             type: CI
             spec:
@@ -606,7 +606,7 @@ pipeline:
                         tags:
                           - linux-amd64
                         caching: false
-                        dockerfile: rf-plugins/drone-buildx/Dockerfile.linux.amd64.rf
+                        dockerfile: rf-plugins/drone-buildx/Dockerfile.linux.amd64.hhi
                         envVariables:
                           PLUGIN_BASE_IMAGE_USERNAME: <+secrets.getValue("harness0HARUsername")>
                           PLUGIN_BASE_IMAGE_PASSWORD: <+secrets.getValue("harness0HARPAT")>
@@ -615,8 +615,8 @@ pipeline:
                         stageStatus: Success
                         condition: <+codebase.build.type> == "branch"
         - stage:
-            name: rf-linux-arm64
-            identifier: rf_linarm64
+            name: hhi-linux-arm64
+            identifier: hhi_linarm64
             description: ""
             type: CI
             spec:
@@ -703,7 +703,7 @@ pipeline:
                         tags:
                           - linux-arm64
                         caching: false
-                        dockerfile: rf-plugins/drone-buildx/Dockerfile.linux.arm64.rf
+                        dockerfile: rf-plugins/drone-buildx/Dockerfile.linux.arm64.hhi
                         envVariables:
                           PLUGIN_BASE_IMAGE_USERNAME: <+secrets.getValue("harness0HARUsername")>
                           PLUGIN_BASE_IMAGE_PASSWORD: <+secrets.getValue("harness0HARPAT")>
