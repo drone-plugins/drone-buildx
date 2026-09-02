@@ -606,7 +606,7 @@ pipeline:
                         tags:
                           - linux-amd64
                         caching: false
-                        dockerfile: rf-plugins/drone-buildx/Dockerfile.linux.amd64.rf
+                        dockerfile: rf-plugins/drone-buildx/Dockerfile.linux.amd64.hhi
                         envVariables:
                           PLUGIN_BASE_IMAGE_USERNAME: <+secrets.getValue("harness0HARUsername")>
                           PLUGIN_BASE_IMAGE_PASSWORD: <+secrets.getValue("harness0HARPAT")>
@@ -703,7 +703,7 @@ pipeline:
                         tags:
                           - linux-arm64
                         caching: false
-                        dockerfile: rf-plugins/drone-buildx/Dockerfile.linux.arm64.rf
+                        dockerfile: rf-plugins/drone-buildx/Dockerfile.linux.arm64.hhi
                         envVariables:
                           PLUGIN_BASE_IMAGE_USERNAME: <+secrets.getValue("harness0HARUsername")>
                           PLUGIN_BASE_IMAGE_PASSWORD: <+secrets.getValue("harness0HARPAT")>
