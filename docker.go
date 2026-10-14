@@ -848,6 +848,29 @@ func replaceOrRemoveAzureCacheAttr(arg, attr, value string) string {
 	return strings.Replace(arg, placeholder, "", 1)
 }
 
+// harnessScopeAttrs maps type=harness cache attrs to the step env they come from.
+// BuildKit sends them to cache-service as orgId/projectId/pipelineId/stageId.
+var harnessScopeAttrs = []struct{ attr, env string }{
+	{"org_id", "HARNESS_ORG_ID"},
+	{"project_id", "HARNESS_PROJECT_ID"},
+	{"pipeline_id", "HARNESS_PIPELINE_ID"},
+	{"stage_id", "HARNESS_STAGE_ID"},
+}
+
+// appendHarnessScopeAttrs adds the Harness scope attrs to a type=harness cache arg.
+// Any other cache type is returned unchanged; empty env values and attrs already set are skipped.
+func appendHarnessScopeAttrs(arg string) string {
+	if !strings.Contains(","+arg+",", ",type=harness,") {
+		return arg
+	}
+	for _, a := range harnessScopeAttrs {
+		if v := os.Getenv(a.env); v != "" && !strings.Contains(arg, a.attr+"=") {
+			arg += "," + a.attr + "=" + v
+		}
+	}
+	return arg
+}
+
 func sanitizeCacheCommand(build *Build) {
 	// Helper function to sanitize cache arguments
 	sanitizeCacheArgs := func(args []string) []string {
@@ -902,6 +925,8 @@ func sanitizeCacheCommand(build *Build) {
 					arg = arg + ",tls_insecure_skip_verify=true"
 				}
 			}
+
+			arg = appendHarnessScopeAttrs(arg)
 
 			// Update the argument
 			args[i] = arg

@@ -440,6 +440,54 @@ func TestCommandBuildxBake(t *testing.T) {
 	}
 }
 
+func TestAppendHarnessScopeAttrs(t *testing.T) {
+	tests := []struct {
+		name string
+		env  map[string]string
+		arg  string
+		want string
+	}{
+		{
+			name: "harness gets all attrs",
+			env:  map[string]string{"HARNESS_ORG_ID": "o", "HARNESS_PROJECT_ID": "p", "HARNESS_PIPELINE_ID": "pl", "HARNESS_STAGE_ID": "s"},
+			arg:  "type=harness,endpoint_url=http://x,token=t,account_id=a",
+			want: "type=harness,endpoint_url=http://x,token=t,account_id=a,org_id=o,project_id=p,pipeline_id=pl,stage_id=s",
+		},
+		{
+			name: "harness skips empty env",
+			env:  map[string]string{"HARNESS_ORG_ID": "o"},
+			arg:  "type=harness,account_id=a",
+			want: "type=harness,account_id=a,org_id=o",
+		},
+		{
+			name: "harness does not duplicate existing attr",
+			env:  map[string]string{"HARNESS_ORG_ID": "o", "HARNESS_PROJECT_ID": "p"},
+			arg:  "type=harness,org_id=user",
+			want: "type=harness,org_id=user,project_id=p",
+		},
+		{
+			name: "harness with no env unchanged",
+			arg:  "type=harness,account_id=a",
+			want: "type=harness,account_id=a",
+		},
+		{name: "s3 unchanged", env: map[string]string{"HARNESS_ORG_ID": "o"}, arg: "type=s3,bucket=b", want: "type=s3,bucket=b"},
+		{name: "gcs unchanged", env: map[string]string{"HARNESS_ORG_ID": "o"}, arg: "type=gcs,bucket=b", want: "type=gcs,bucket=b"},
+		{name: "azure unchanged", env: map[string]string{"HARNESS_ORG_ID": "o"}, arg: "type=azure,account_name=n", want: "type=azure,account_name=n"},
+		{name: "registry unchanged", env: map[string]string{"HARNESS_ORG_ID": "o"}, arg: "type=registry,ref=harness/x:cache", want: "type=registry,ref=harness/x:cache"},
+		{name: "harness only as a value unchanged", env: map[string]string{"HARNESS_ORG_ID": "o"}, arg: "type=registry,ref=type=harness", want: "type=registry,ref=type=harness"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			for _, e := range []string{"HARNESS_ORG_ID", "HARNESS_PROJECT_ID", "HARNESS_PIPELINE_ID", "HARNESS_STAGE_ID"} {
+				t.Setenv(e, tt.env[e])
+			}
+			if got := appendHarnessScopeAttrs(tt.arg); got != tt.want {
+				t.Errorf("got %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
 func TestSanitizeCacheCommand(t *testing.T) {
 	tests := []struct {
 		name              string
