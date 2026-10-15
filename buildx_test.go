@@ -100,6 +100,77 @@ func TestCmdSetupBuildx_OmitsCAWhenUnset(t *testing.T) {
 	}
 }
 
+func TestShouldInheritBuildkitAuth(t *testing.T) {
+	os.Unsetenv(envBuildkitInheritAuth)
+	os.Unsetenv(envHarnessCacheAwsInherit)
+
+	if shouldInheritBuildkitAuth(false) {
+		t.Fatal("expected inherit disabled by default")
+	}
+	if !shouldInheritBuildkitAuth(true) {
+		t.Fatal("expected inherit enabled by flag")
+	}
+
+	t.Setenv(envBuildkitInheritAuth, "true")
+	if !shouldInheritBuildkitAuth(false) {
+		t.Fatal("expected inherit enabled by PLUGIN_BUILDKIT_INHERIT_AUTH")
+	}
+	os.Unsetenv(envBuildkitInheritAuth)
+
+	t.Setenv(envHarnessCacheAwsInherit, "true")
+	if !shouldInheritBuildkitAuth(false) {
+		t.Fatal("expected inherit enabled by HARNESS_CACHE_AWS_INHERIT_FROM_DELEGATE")
+	}
+}
+
+func TestDetectBuildPodAwsAuthMode(t *testing.T) {
+	os.Unsetenv(envAwsRoleArn)
+	os.Unsetenv(envAwsWebIdentityTokenFile)
+	os.Unsetenv(envAwsAccessKeyId)
+	os.Unsetenv(envAwsContainerCredsRelativeUri)
+	os.Unsetenv(envAwsContainerCredsFullUri)
+
+	if got := detectBuildPodAwsAuthMode(); got != "DEFAULT_CREDENTIAL_CHAIN" {
+		t.Fatalf("got %q", got)
+	}
+
+	t.Setenv(envAwsRoleArn, "arn:aws:iam::111:role/ci")
+	t.Setenv(envAwsWebIdentityTokenFile, "/tmp/token")
+	if got := detectBuildPodAwsAuthMode(); got != "IRSA" {
+		t.Fatalf("got %q", got)
+	}
+}
+
+func TestCmdSetupBuildx_InheritAuthForwardsAwsEnvAndToken(t *testing.T) {
+	unsetProxyEnv(t)
+	os.Unsetenv(envBuildkitInheritAuth)
+	os.Unsetenv(envHarnessCacheAwsInherit)
+
+	dir := t.TempDir()
+	tokenPath := filepath.Join(dir, "token")
+	token := "web-identity-token-value"
+	if err := os.WriteFile(tokenPath, []byte(token), 0600); err != nil {
+		t.Fatalf("write token: %v", err)
+	}
+
+	t.Setenv(envAwsRoleArn, "arn:aws:iam::111111111111:role/ci-build")
+	t.Setenv(envAwsWebIdentityTokenFile, tokenPath)
+
+	cmd := cmdSetupBuildx(Builder{Driver: dockerContainerDriver}, nil, true)
+	args := cmd.Args
+
+	assertHasDriverOpt(t, args, "env.AWS_ROLE_ARN=arn:aws:iam::111111111111:role/ci-build")
+	assertHasDriverOpt(t, args, "env.AWS_WEB_IDENTITY_TOKEN_FILE="+tokenPath)
+
+	joined := strings.Join(args, " ")
+	if !strings.Contains(joined, "--aws-token-path="+tokenPath) {
+		t.Fatalf("missing aws-token-path in args: %v", args)
+	}
+	if !strings.Contains(joined, "--aws-token-content="+token) {
+		t.Fatalf("missing aws-token-content in args: %v", args)
+	}
+}
+
 func unsetProxyEnv(t *testing.T) {
 	t.Helper()
 	keys := []string{
