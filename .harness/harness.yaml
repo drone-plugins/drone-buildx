@@ -17,7 +17,7 @@ pipeline:
         spec:
           cloneCodebase: true
           caching:
-            enabled: false
+            enabled: true
             paths: []
           platform:
             os: Linux
@@ -45,6 +45,8 @@ pipeline:
                     image: golang:1.26
                     shell: Sh
                     command: go test -cover ./...
+          buildIntelligence:
+            enabled: true
     - parallel:
         - stage:
             identifier: linamd64
@@ -54,7 +56,7 @@ pipeline:
             spec:
               cloneCodebase: true
               caching:
-                enabled: false
+                enabled: true
                 paths: []
               platform:
                 os: Linux
@@ -126,6 +128,8 @@ pipeline:
                       when:
                         stageStatus: Success
                         condition: <+codebase.build.type> == "branch"
+              buildIntelligence:
+                enabled: true
         - stage:
             identifier: linamd64heroku
             type: CI
@@ -134,7 +138,7 @@ pipeline:
             spec:
               cloneCodebase: true
               caching:
-                enabled: false
+                enabled: true
                 paths: []
               platform:
                 os: Linux
@@ -206,6 +210,8 @@ pipeline:
                       when:
                         stageStatus: Success
                         condition: <+codebase.build.type> == "branch"
+              buildIntelligence:
+                enabled: true
         - stage:
             identifier: linarm64
             type: CI
@@ -214,7 +220,7 @@ pipeline:
             spec:
               cloneCodebase: true
               caching:
-                enabled: false
+                enabled: true
                 paths: []
               platform:
                 os: Linux
@@ -286,6 +292,8 @@ pipeline:
                       when:
                         stageStatus: Success
                         condition: <+codebase.build.type> == "branch"
+              buildIntelligence:
+                enabled: true
         - stage:
             identifier: linarm64heroku
             type: CI
@@ -294,7 +302,7 @@ pipeline:
             spec:
               cloneCodebase: true
               caching:
-                enabled: false
+                enabled: true
                 paths: []
               platform:
                 os: Linux
@@ -366,6 +374,8 @@ pipeline:
                       when:
                         stageStatus: Success
                         condition: <+codebase.build.type> == "branch"
+              buildIntelligence:
+                enabled: true
         - stage:
             name: win-1809-amd64
             identifier: win1809amd64
