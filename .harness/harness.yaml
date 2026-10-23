@@ -394,7 +394,7 @@ pipeline:
                       identifier: Build_Binary
                       spec:
                         connectorRef: Plugins_Docker_Hub_Connector
-                        image: golang:1.26.10
+                        image: golang:1.23.0
                         shell: Sh
                         command: |-
                           # force go modules
@@ -411,7 +411,7 @@ pipeline:
 
                           go build -buildvcs=false -o release/windows/amd64/drone-docker.exe ./cmd/drone-docker
                         envVariables:
-                          GOTOOLCHAIN: go1.26.0
+                          GOTOOLCHAIN: go1.26.10
                   - step:
                       type: Plugin
                       name: Build and Push on Tag
@@ -478,7 +478,9 @@ pipeline:
                       name: Build Binary
                       spec:
                         connectorRef: Plugins_Docker_Hub_Connector
-                        image: golang:1.26.10
+                        image: golang:1.26
+                        envVariables:
+                          GOTOOLCHAIN: go1.26.10
                         shell: Sh
                         command: |-
                           # force go modules
@@ -756,7 +758,9 @@ pipeline:
                       identifier: go_build
                       spec:
                         connectorRef: Plugins_Docker_Hub_Connector
-                        image: golang:1.26.10
+                        image: golang:1.23.0
+                        envVariables:
+                          GOTOOLCHAIN: go1.26.10
                         shell: Sh
                         command: |-
                           # disable cgo
@@ -831,7 +835,7 @@ pipeline:
                       identifier: build_amd64ltsc2022
                       spec:
                         connectorRef: Plugins_Docker_Hub_Connector
-                        image: golang:1.26.10
+                        image: golang:1.23.0
                         shell: Sh
                         command: |-
                           # disable cgo
@@ -839,6 +843,7 @@ pipeline:
 
                           go build -o release/windows/amd64/drone-docker.exe ./cmd/drone-docker
                         envVariables:
+                          GOTOOLCHAIN: go1.26.10
                           CGO_ENABLED: "0"
                   - step:
                       type: Plugin
@@ -900,7 +905,9 @@ pipeline:
                       identifier: Build_Binary
                       spec:
                         connectorRef: Plugins_Docker_Hub_Connector
-                        image: golang:1.26.10
+                        image: golang:1.26
+                        envVariables:
+                          GOTOOLCHAIN: go1.26.10
                         shell: Sh
                         command: |-
                           # force go modules
@@ -985,7 +992,9 @@ pipeline:
                       identifier: build_amd64ltsc2025
                       spec:
                         connectorRef: Plugins_Docker_Hub_Connector
-                        image: golang:1.26.10
+                        image: golang:1.26
+                        envVariables:
+                          GOTOOLCHAIN: go1.26.10
                         shell: Sh
                         command: |-
                           # force go modules

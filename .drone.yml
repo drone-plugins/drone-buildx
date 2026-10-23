@@ -55,10 +55,11 @@ platform:
 
 steps:
  - name: go build
-   image: golang:1.26.10
+   image: golang:1.24.11
    environment:
      CGO_ENABLED: 0
    commands:
+     - . ./scripts/setup-go-windows.ps1
      - go build -o release/windows/amd64/drone-docker.exe ./cmd/drone-docker
  - name: build docker plugin
    image: plugins/docker@sha256:f0233d950ae87ee6cb5500b2d5497fe02aa338201c0bdce2619f443fd174cfa4
@@ -98,10 +99,11 @@ platform:
 
 steps:
  - name: go build
-   image: golang:1.26.10
+   image: golang:1.24.11
    environment:
      CGO_ENABLED: 0
    commands:
+     - . ./scripts/setup-go-windows.ps1
      - go build -o release/windows/amd64/drone-docker.exe ./cmd/drone-docker
  - name: build docker plugin
    image: plugins/docker
