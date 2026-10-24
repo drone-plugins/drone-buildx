@@ -1215,7 +1215,6 @@ pipeline:
                           GOOS=darwin  GOARCH=arm64   go build -ldflags "-s -w" -a -tags netgo -o release/drone-buildx-darwin-arm64 ./cmd/drone-docker
                           GOOS=windows GOARCH=amd64   go build -ldflags "-s -w" -a -tags netgo -o release/drone-buildx-windows-amd64 ./cmd/drone-docker
 
-                          apk update
                           apk add --no-cache zstd
                           zstd release/drone-buildx-linux-amd64
                           zstd release/drone-buildx-linux-arm64
