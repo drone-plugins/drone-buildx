@@ -32,7 +32,7 @@ pipeline:
                   type: Run
                   name: Vet
                   spec:
-                    connectorRef: Plugins_Docker_Hub_Connector
+                    connectorRef: HHI_Public_Images
                     image: harness0.harness.io/oci/docker_artifacts/hhi/go:1.26.10
                     shell: Sh
                     command: go vet ./...
@@ -41,7 +41,7 @@ pipeline:
                   type: Run
                   name: Test
                   spec:
-                    connectorRef: Plugins_Docker_Hub_Connector
+                    connectorRef: HHI_Public_Images
                     image: harness0.harness.io/oci/docker_artifacts/hhi/go:1.26.10
                     shell: Sh
                     command: go test -cover ./...
@@ -69,7 +69,7 @@ pipeline:
                       type: Run
                       name: Build Binary
                       spec:
-                        connectorRef: Plugins_Docker_Hub_Connector
+                        connectorRef: HHI_Public_Images
                         image: harness0.harness.io/oci/docker_artifacts/hhi/go:1.26.10
                         shell: Sh
                         command: |-
@@ -149,7 +149,7 @@ pipeline:
                       type: Run
                       name: Build Binary
                       spec:
-                        connectorRef: Plugins_Docker_Hub_Connector
+                        connectorRef: HHI_Public_Images
                         image: harness0.harness.io/oci/docker_artifacts/hhi/go:1.26.10
                         shell: Sh
                         command: |-
@@ -229,7 +229,7 @@ pipeline:
                       type: Run
                       name: Build Binary
                       spec:
-                        connectorRef: Plugins_Docker_Hub_Connector
+                        connectorRef: HHI_Public_Images
                         image: harness0.harness.io/oci/docker_artifacts/hhi/go:1.26.10
                         shell: Sh
                         command: |-
@@ -309,7 +309,7 @@ pipeline:
                       type: Run
                       name: Build Binary
                       spec:
-                        connectorRef: Plugins_Docker_Hub_Connector
+                        connectorRef: HHI_Public_Images
                         image: harness0.harness.io/oci/docker_artifacts/hhi/go:1.26.10
                         shell: Sh
                         command: |-
@@ -553,7 +553,7 @@ pipeline:
                       name: Build Binary
                       identifier: build_binary
                       spec:
-                        connectorRef: Plugins_Docker_Hub_Connector
+                        connectorRef: HHI_Public_Images
                         image: harness0.harness.io/oci/docker_artifacts/hhi/go:1.26.10
                         shell: Sh
                         command: |-
@@ -650,7 +650,7 @@ pipeline:
                       name: Build Binary
                       identifier: build_binary
                       spec:
-                        connectorRef: Plugins_Docker_Hub_Connector
+                        connectorRef: HHI_Public_Images
                         image: harness0.harness.io/oci/docker_artifacts/hhi/go:1.26.10
                         shell: Sh
                         command: |-
@@ -1098,13 +1098,13 @@ pipeline:
                         image: harness0.harness.io/oci/docker_artifacts/hhi/go:1.26.10
                         shell: Sh
                         command: mkdir -p .hhi-go-toolchain && cp -a /usr/lib/go/. .hhi-go-toolchain/
-                        connectorRef: Plugins_Docker_Hub_Connector
+                        connectorRef: HHI_Public_Images
                   - step:
                       identifier: Build_Binaries
                       type: Run
                       name: Build Binaries
                       spec:
-                        connectorRef: Plugins_Docker_Hub_Connector
+                        connectorRef: HHI_Public_Images
                         image: harness0.harness.io/oci/docker_artifacts/hhi/harnessos-alpine:1
                         shell: Sh
                         command: |-
