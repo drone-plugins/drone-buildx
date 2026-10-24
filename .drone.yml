@@ -12,7 +12,7 @@ platform:
 
 steps:
   - name: vet
-    image: harness0.harness.io/oci/docker_artifacts/hhi/go:1.26.10
+    image: harness0.harness.io/oci/docker_artifacts/hhi/go:1.26.10@sha256:718fddf012b3a305e936ae9964e5a642036bcb7b4c6c0786e2f78f238d637db8
     commands:
       - go vet ./...
     environment:
@@ -22,7 +22,7 @@ steps:
         path: /go
 
   - name: test
-    image: harness0.harness.io/oci/docker_artifacts/hhi/go:1.26.10
+    image: harness0.harness.io/oci/docker_artifacts/hhi/go:1.26.10@sha256:718fddf012b3a305e936ae9964e5a642036bcb7b4c6c0786e2f78f238d637db8
     commands:
       - go test -cover ./...
     environment:
@@ -108,6 +108,8 @@ steps:
  - name: build docker plugin
    image: plugins/docker
    settings:
+     pull_image: true
+     no_cache: true
      dockerfile: docker/docker/Dockerfile.windows.amd64.ltsc2022
      repo: plugins/buildx
      username:
@@ -143,7 +145,7 @@ platform:
 
 steps:
  - name: build-push
-   image: harness0.harness.io/oci/docker_artifacts/hhi/go:1.26.10
+   image: harness0.harness.io/oci/docker_artifacts/hhi/go:1.26.10@sha256:718fddf012b3a305e936ae9964e5a642036bcb7b4c6c0786e2f78f238d637db8
    commands:
      - 'go build -v -ldflags "-X main.version=${DRONE_COMMIT_SHA:0:8}" -a -tags netgo -o release/linux/amd64/drone-docker ./cmd/drone-docker'
    environment:
@@ -154,7 +156,7 @@ steps:
          - tag
 
  - name: build-tag
-   image: harness0.harness.io/oci/docker_artifacts/hhi/go:1.26.10
+   image: harness0.harness.io/oci/docker_artifacts/hhi/go:1.26.10@sha256:718fddf012b3a305e936ae9964e5a642036bcb7b4c6c0786e2f78f238d637db8
    commands:
      - 'go build -v -ldflags "-X main.version=${DRONE_TAG##v}" -a -tags netgo -o release/linux/amd64/drone-docker ./cmd/drone-docker'
    environment:
@@ -164,7 +166,7 @@ steps:
        - tag
 
  - name: executable
-   image: harness0.harness.io/oci/docker_artifacts/hhi/go:1.26.10
+   image: harness0.harness.io/oci/docker_artifacts/hhi/go:1.26.10@sha256:718fddf012b3a305e936ae9964e5a642036bcb7b4c6c0786e2f78f238d637db8
    commands:
      - ./release/linux/amd64/drone-docker --help
 
@@ -176,6 +178,8 @@ steps:
  - name: publish
    image: plugins/docker:18
    settings:
+     pull_image: true
+     no_cache: true
      auto_tag: true
      auto_tag_suffix: linux-amd64
      daemon_off: false
@@ -213,7 +217,7 @@ platform:
 
 steps:
  - name: build-push
-   image: harness0.harness.io/oci/docker_artifacts/hhi/go:1.26.10
+   image: harness0.harness.io/oci/docker_artifacts/hhi/go:1.26.10@sha256:718fddf012b3a305e936ae9964e5a642036bcb7b4c6c0786e2f78f238d637db8
    commands:
      - 'go build -v -ldflags "-X main.version=${DRONE_COMMIT_SHA:0:8}" -a -tags netgo -o release/linux/arm64/drone-docker ./cmd/drone-docker'
    environment:
@@ -224,7 +228,7 @@ steps:
          - tag
 
  - name: build-tag
-   image: harness0.harness.io/oci/docker_artifacts/hhi/go:1.26.10
+   image: harness0.harness.io/oci/docker_artifacts/hhi/go:1.26.10@sha256:718fddf012b3a305e936ae9964e5a642036bcb7b4c6c0786e2f78f238d637db8
    commands:
      - 'go build -v -ldflags "-X main.version=${DRONE_TAG##v}" -a -tags netgo -o release/linux/arm64/drone-docker ./cmd/drone-docker'
    environment:
@@ -234,7 +238,7 @@ steps:
        - tag
 
  - name: executable
-   image: harness0.harness.io/oci/docker_artifacts/hhi/go:1.26.10
+   image: harness0.harness.io/oci/docker_artifacts/hhi/go:1.26.10@sha256:718fddf012b3a305e936ae9964e5a642036bcb7b4c6c0786e2f78f238d637db8
    commands:
      - ./release/linux/arm64/drone-docker --help
 
@@ -246,6 +250,8 @@ steps:
  - name: publish
    image: plugins/docker:18
    settings:
+     pull_image: true
+     no_cache: true
      auto_tag: true
      auto_tag_suffix: linux-arm64
      daemon_off: false
@@ -318,7 +324,7 @@ platform:
 
 steps:
  - name: build-push
-   image: harness0.harness.io/oci/docker_artifacts/hhi/go:1.26.10
+   image: harness0.harness.io/oci/docker_artifacts/hhi/go:1.26.10@sha256:718fddf012b3a305e936ae9964e5a642036bcb7b4c6c0786e2f78f238d637db8
    commands:
      - 'go build -v -ldflags "-X main.version=${DRONE_COMMIT_SHA:0:8}" -a -tags netgo -o release/linux/amd64/drone-heroku ./cmd/drone-heroku'
    environment:
@@ -328,7 +334,7 @@ steps:
        exclude:
          - tag
  - name: build-tag
-   image: harness0.harness.io/oci/docker_artifacts/hhi/go:1.26.10
+   image: harness0.harness.io/oci/docker_artifacts/hhi/go:1.26.10@sha256:718fddf012b3a305e936ae9964e5a642036bcb7b4c6c0786e2f78f238d637db8
    commands:
      - 'go build -v -ldflags "-X main.version=${DRONE_TAG##v}" -a -tags netgo -o release/linux/amd64/drone-heroku ./cmd/drone-heroku'
    environment:
@@ -345,6 +351,8 @@ steps:
  - name: publish
    image: plugins/docker:18
    settings:
+     pull_image: true
+     no_cache: true
      auto_tag: true
      auto_tag_suffix: linux-amd64
      daemon_off: false
@@ -382,7 +390,7 @@ platform:
 
 steps:
  - name: build-push
-   image: harness0.harness.io/oci/docker_artifacts/hhi/go:1.26.10
+   image: harness0.harness.io/oci/docker_artifacts/hhi/go:1.26.10@sha256:718fddf012b3a305e936ae9964e5a642036bcb7b4c6c0786e2f78f238d637db8
    commands:
      - 'go build -v -ldflags "-X main.version=${DRONE_COMMIT_SHA:0:8}" -a -tags netgo -o release/linux/arm64/drone-heroku ./cmd/drone-heroku'
    environment:
@@ -392,7 +400,7 @@ steps:
        exclude:
          - tag
  - name: build-tag
-   image: harness0.harness.io/oci/docker_artifacts/hhi/go:1.26.10
+   image: harness0.harness.io/oci/docker_artifacts/hhi/go:1.26.10@sha256:718fddf012b3a305e936ae9964e5a642036bcb7b4c6c0786e2f78f238d637db8
    commands:
      - 'go build -v -ldflags "-X main.version=${DRONE_TAG##v}" -a -tags netgo -o release/linux/arm64/drone-heroku ./cmd/drone-heroku'
    environment:
@@ -409,6 +417,8 @@ steps:
  - name: publish
    image: plugins/docker:18
    settings:
+     pull_image: true
+     no_cache: true
      auto_tag: true
      auto_tag_suffix: linux-arm64
      daemon_off: false
@@ -477,7 +487,7 @@ pool:
 steps:
   - name: build
     pull: always
-    image: harness0.harness.io/oci/docker_artifacts/hhi/go:1.26.10
+    image: harness0.harness.io/oci/docker_artifacts/hhi/go:1.26.10@sha256:718fddf012b3a305e936ae9964e5a642036bcb7b4c6c0786e2f78f238d637db8
     commands:
       - GOOS=linux   GOARCH=amd64   go build -ldflags "-s -w" -a -tags netgo -o release/drone-buildx-linux-amd64 ./cmd/drone-docker
       - GOOS=linux   GOARCH=arm64   go build -ldflags "-s -w" -a -tags netgo -o release/drone-buildx-linux-arm64 ./cmd/drone-docker
