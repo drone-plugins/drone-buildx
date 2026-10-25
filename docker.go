@@ -588,6 +588,7 @@ func (p Plugin) authenticate() error {
 		for _, registry := range p.artifactoryOIDC.Registries {
 			login := Login{Registry: registry, Username: p.artifactoryOIDC.Username}
 			if _, err := runLoginCommand(commandLoginPasswordStdin(login, p.artifactoryOIDC.AccessToken)); err != nil {
+				fmt.Printf("Failed to authenticate to Artifactory registry %q: %v\n", registry, err)
 				return fmt.Errorf("error authenticating to Artifactory registry %q", registry)
 			}
 		}

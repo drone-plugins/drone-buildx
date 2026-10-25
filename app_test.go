@@ -110,6 +110,45 @@ func TestConfigureArtifactoryOIDCPreparesAuthentication(t *testing.T) {
 	}
 }
 
+func TestConfigureArtifactoryOIDCAllowsInsecureDaemonAndCacheTLSOptions(t *testing.T) {
+	t.Setenv("ARTIFACTORY_OIDC_TOKEN", "harness-token")
+	secureDockerConfig(t)
+
+	exchangeCalls := 0
+	stubOIDCExchange(t, func(string, string, string, string) (artifactory.Credential, error) {
+		exchangeCalls++
+		return validCredential(), nil
+	})
+
+	plugin := Plugin{
+		Login:  Login{Registry: "jfrog.example.com"},
+		Daemon: Daemon{Registry: "jfrog.example.com", Insecure: true},
+		Build: Build{
+			Repo:             "jfrog.example.com/team/image",
+			CacheFrom:        []string{"type=s3,region=us-east-1,bucket=cache,endpoint_url=https://minio.internal"},
+			CacheTo:          []string{"type=s3,region=us-east-1,bucket=cache,endpoint_url=https://minio.internal"},
+			CacheTlsInsecure: true,
+		},
+	}
+	c := newOIDCContext(t,
+		"--url", "https://jfrog.example.com/artifactory",
+		"--artifactory-oidc-provider-name", "harness",
+	)
+	if err := configureArtifactoryOIDC(context.Background(), c, &plugin); err != nil {
+		t.Fatalf("configureArtifactoryOIDC() error = %v", err)
+	}
+	if exchangeCalls != 1 {
+		t.Fatalf("exchange calls = %d, want 1", exchangeCalls)
+	}
+	if plugin.artifactoryOIDC == nil {
+		t.Fatal("prepared Artifactory OIDC authentication is nil")
+	}
+	if len(plugin.artifactoryOIDC.Registries) != 1 ||
+		plugin.artifactoryOIDC.Registries[0] != "jfrog.example.com" {
+		t.Fatalf("registries = %#v", plugin.artifactoryOIDC.Registries)
+	}
+}
+
 func TestConfigureArtifactoryOIDCRejectsPartialInputsBeforeExchange(t *testing.T) {
 	exchangeCalled := false
 	stubOIDCExchange(t, func(string, string, string, string) (artifactory.Credential, error) {

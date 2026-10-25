@@ -713,8 +713,6 @@ func configureArtifactoryOIDC(
 		BaseImageUsername:    plugin.BaseImageUsername,
 		BaseImagePassword:    plugin.BaseImagePassword,
 		CacheRepositories:    registryCacheRepositories(plugin.Build.CacheFrom, plugin.Build.CacheTo),
-		Insecure:             plugin.Daemon.Insecure,
-		SkipTLSVerify:        plugin.Build.CacheTlsInsecure,
 	}
 	if !artifactory.HasOIDCInputs(inputs) {
 		return nil

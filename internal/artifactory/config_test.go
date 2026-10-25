@@ -88,44 +88,6 @@ func TestValidateInputsRejectsConflictingOptions(t *testing.T) {
 				in.BaseImagePassword = "base-password"
 			},
 		},
-		{
-			name: "registry client certificate",
-			mutate: func(in *Inputs) {
-				in.RegistryClientCert = "/certs/client.pem"
-			},
-		},
-		{
-			name:   "insecure",
-			mutate: func(in *Inputs) { in.Insecure = true },
-		},
-		{
-			name:   "insecure pull",
-			mutate: func(in *Inputs) { in.InsecurePull = true },
-		},
-		{
-			name: "insecure registry",
-			mutate: func(in *Inputs) {
-				in.InsecureRegistry = "jfrog.example.com"
-			},
-		},
-		{
-			name: "skip TLS verification",
-			mutate: func(in *Inputs) {
-				in.SkipTLSVerify = true
-			},
-		},
-		{
-			name: "skip pull TLS verification",
-			mutate: func(in *Inputs) {
-				in.SkipTLSVerifyPull = true
-			},
-		},
-		{
-			name: "skip registry TLS verification",
-			mutate: func(in *Inputs) {
-				in.SkipTLSVerifyRegistry = true
-			},
-		},
 	}
 
 	for _, tt := range tests {
@@ -142,16 +104,6 @@ func TestValidateInputsRejectsConflictingOptions(t *testing.T) {
 				t.Fatalf("error exposes ID token: %v", err)
 			}
 		})
-	}
-}
-
-func TestValidateInputsAllowsRegistryCertificate(t *testing.T) {
-	t.Parallel()
-
-	inputs := validInputs()
-	inputs.RegistryCertificate = "certificate-data"
-	if err := ValidateInputs(inputs); err != nil {
-		t.Fatalf("ValidateInputs() error = %v", err)
 	}
 }
 

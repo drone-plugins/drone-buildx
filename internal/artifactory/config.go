@@ -24,18 +24,6 @@ type Inputs struct {
 	BaseImagePassword string
 
 	CacheRepositories []string
-
-	// RegistryCertificate is intentionally permitted. Buildx integration warns
-	// that it is not used for the JFrog token exchange, matching Kaniko.
-	RegistryCertificate string
-	RegistryClientCert  string
-
-	Insecure              bool
-	InsecurePull          bool
-	InsecureRegistry      string
-	SkipTLSVerify         bool
-	SkipTLSVerifyPull     bool
-	SkipTLSVerifyRegistry bool
 }
 
 // HasOIDCInputs reports whether any Artifactory OIDC-specific input was set.
@@ -67,10 +55,7 @@ func ValidateInputs(inputs Inputs) error {
 		return fmt.Errorf("repository is required")
 	}
 	if inputs.DockerConfigOverride != "" || inputs.Username != "" ||
-		inputs.Password != "" || inputs.RegistryClientCert != "" ||
-		inputs.Insecure || inputs.InsecurePull || inputs.InsecureRegistry != "" ||
-		inputs.SkipTLSVerify || inputs.SkipTLSVerifyPull ||
-		inputs.SkipTLSVerifyRegistry {
+		inputs.Password != "" {
 		return fmt.Errorf("option is incompatible with JFrog OIDC credentials")
 	}
 
