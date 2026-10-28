@@ -33,7 +33,7 @@ type (
 		IPv6             bool               // Docker daemon IPv6 networking
 		RegistryType     drone.RegistryType // Docker registry type
 		ArtifactRegistry string             // Docker registry where artifact can be viewed
-		RetryCount    int                // Number of retry attempts to reach Docker daemon
+		RetryCount       int                // Number of retry attempts to reach Docker daemon
 	}
 
 	Builder struct {
@@ -60,50 +60,57 @@ type (
 		AccessToken string // External Access Token
 	}
 
+	preparedArtifactoryOIDC struct {
+		Registries          []string
+		Username            string
+		AccessToken         string
+		SameOriginBaseImage bool
+	}
+
 	// Build defines Docker build parameters.
 	Build struct {
-		Remote                       string   // Git remote URL
-		Name                         string   // Docker build using default named tag
-		Dockerfile                   string   // Docker build Dockerfile
-		Context                      string   // Docker build context
-		Tags                         []string // Docker build tags
-		Args                         []string // Docker build args
-		ArgsEnv                      []string // Docker build args from env
-		ArgsNew                      []string // Docker build args with comma seperated values
-		IsMultipleBuildArgs          bool     // env variable for fall back
-		Target                       string   // Docker build target
-		Squash                       bool     // Docker build squash
-		Pull                         bool     // Docker build pull
-		CacheFrom                    []string // Docker buildx cache-from
-		CacheTo                      []string // Docker buildx cache-to
-		CacheTlsInsecure             bool     // Docker buildx cache-tls-insecure
-		PathStyle                    bool     // Docker buildx path-style for s3 DLC
-		Compress                     bool     // Docker build compress
-		Repo                         string   // Docker build repository
-		LabelSchema                  []string // label-schema Label map
-		AutoLabel                    bool     // auto-label bool
-		Labels                       []string // Label map
-		Link                         string   // Git repo link
-		NoCache                      bool     // Docker build no-cache
-		Secret                       string   // secret keypair
-		SecretEnvs                   []string // Docker build secrets with env var as source
-		SecretFiles                  []string // Docker build secrets with file as source
-		AddHost                      []string // Docker build add-host
-		Quiet                        bool     // Docker build quiet
-		Platform                     string   // Docker build platform
-		SSHAgentKey                  string   // Docker build ssh agent key
-		SSHKeyPath                   string   // Docker build ssh key path
-		BuildxLoad                   bool     // Docker buildx --load
-		HarnessSelfHostedS3AccessKey      string // Harness self-hosted s3 access key
-		HarnessSelfHostedS3SecretKey      string // Harness self-hosted s3 secret key
-		HarnessSelfHostedGcpJsonKey       string // Harness self hosted gcp json key
-		HarnessSelfHostedAzureAccountKey  string // Harness self-hosted azure account key
-		HarnessSelfHostedAzureTenantID    string // Harness self-hosted azure tenant id
-		HarnessSelfHostedAzureClientID    string // Harness self-hosted azure client id
-		HarnessSelfHostedAzureClientSecret string // Harness self-hosted azure client secret
-		HarnessSelfHostedAzureOidcToken   string // Harness self-hosted azure oidc token
-		BuildxOptions                []string // Generic buildx options passed directly to the buildx command
-		BuildxOptionsSemicolon       string   // Buildx options separated by semicolons instead of commas
+		Remote                             string   // Git remote URL
+		Name                               string   // Docker build using default named tag
+		Dockerfile                         string   // Docker build Dockerfile
+		Context                            string   // Docker build context
+		Tags                               []string // Docker build tags
+		Args                               []string // Docker build args
+		ArgsEnv                            []string // Docker build args from env
+		ArgsNew                            []string // Docker build args with comma seperated values
+		IsMultipleBuildArgs                bool     // env variable for fall back
+		Target                             string   // Docker build target
+		Squash                             bool     // Docker build squash
+		Pull                               bool     // Docker build pull
+		CacheFrom                          []string // Docker buildx cache-from
+		CacheTo                            []string // Docker buildx cache-to
+		CacheTlsInsecure                   bool     // Docker buildx cache-tls-insecure
+		PathStyle                          bool     // Docker buildx path-style for s3 DLC
+		Compress                           bool     // Docker build compress
+		Repo                               string   // Docker build repository
+		LabelSchema                        []string // label-schema Label map
+		AutoLabel                          bool     // auto-label bool
+		Labels                             []string // Label map
+		Link                               string   // Git repo link
+		NoCache                            bool     // Docker build no-cache
+		Secret                             string   // secret keypair
+		SecretEnvs                         []string // Docker build secrets with env var as source
+		SecretFiles                        []string // Docker build secrets with file as source
+		AddHost                            []string // Docker build add-host
+		Quiet                              bool     // Docker build quiet
+		Platform                           string   // Docker build platform
+		SSHAgentKey                        string   // Docker build ssh agent key
+		SSHKeyPath                         string   // Docker build ssh key path
+		BuildxLoad                         bool     // Docker buildx --load
+		HarnessSelfHostedS3AccessKey       string   // Harness self-hosted s3 access key
+		HarnessSelfHostedS3SecretKey       string   // Harness self-hosted s3 secret key
+		HarnessSelfHostedGcpJsonKey        string   // Harness self hosted gcp json key
+		HarnessSelfHostedAzureAccountKey   string   // Harness self-hosted azure account key
+		HarnessSelfHostedAzureTenantID     string   // Harness self-hosted azure tenant id
+		HarnessSelfHostedAzureClientID     string   // Harness self-hosted azure client id
+		HarnessSelfHostedAzureClientSecret string   // Harness self-hosted azure client secret
+		HarnessSelfHostedAzureOidcToken    string   // Harness self-hosted azure oidc token
+		BuildxOptions                      []string // Generic buildx options passed directly to the buildx command
+		BuildxOptionsSemicolon             string   // Buildx options separated by semicolons instead of commas
 		// Buildx Bake (opt-in)
 		BakeFile    string // Buildx Bake definition file (HCL/JSON/Compose). If set, Bake mode is active
 		BakeOptions string // Semicolon-delimited Bake options and/or target names
@@ -130,6 +137,7 @@ type (
 		BuildxOutputFormat  string  // Buildx output format for direct tar output (docker, oci)
 		SourceImage         string  // Source image to push (optional)
 		BuildkitInheritAuth bool    // Inherit auth from docker daemon
+		artifactoryOIDC     *preparedArtifactoryOIDC
 	}
 
 	Card []struct {
@@ -170,6 +178,10 @@ const (
 	v2RegistryURL    string = "https://index.docker.io/v2/" // v2 registry is not supported
 )
 
+var runLoginCommand = func(cmd *exec.Cmd) ([]byte, error) {
+	return cmd.CombinedOutput()
+}
+
 // Exec executes the plugin step
 func (p Plugin) Exec() error {
 
@@ -195,96 +207,8 @@ func (p Plugin) Exec() error {
 		}
 		time.Sleep(time.Second * 1)
 	}
-	// for debugging purposes, log the type of authentication
-	// credentials that have been provided.
-	switch {
-	case p.Login.Password != "" && p.Login.Config != "":
-		fmt.Println("Detected registry credentials and registry credentials file")
-	case p.Login.Password != "":
-		fmt.Println("Detected registry credentials")
-	case p.Login.Config != "":
-		fmt.Println("Detected registry credentials file")
-	case p.Login.AccessToken != "":
-		fmt.Println("Detected access token")
-	default:
-		fmt.Println("Registry credentials or Docker config not provided. Guest mode enabled.")
-	}
-	// create Auth Config File
-	if p.Login.Config != "" {
-		os.MkdirAll(dockerHome, 0600)
-
-		path := filepath.Join(dockerHome, "config.json")
-		var content []byte
-		// Try to parse as JSON first to determine if it's content or file path
-		var jsonTest interface{}
-		if json.Unmarshal([]byte(p.Login.Config), &jsonTest) == nil {
-			// Valid JSON, treat as content
-			content = []byte(p.Login.Config)
-		} else if _, err := os.Stat(p.Login.Config); err == nil {
-			// Not JSON but file exists, read it
-			data, err := os.ReadFile(p.Login.Config)
-			if err != nil {
-				return fmt.Errorf("Error reading docker config file '%s': %s", p.Login.Config, err)
-			}
-			content = data
-		} else {
-			// Neither valid JSON nor existing file
-			return fmt.Errorf("Docker config must be either valid JSON content or a path to an existing config file")
-		}
-		if err := os.WriteFile(path, content, 0600); err != nil {
-			return fmt.Errorf("Error writing config.json: %s", err)
-		}
-	}
-
-	// add base image docker credentials to the existing config file, else create new
-	// instead of writing to config file directly, using docker's login func
-	if p.BaseImageRegistry != "" {
-		if p.BaseImageUsername == "" {
-			fmt.Printf("Username cannot be empty. The base image connector requires authenticated access. Please either use an authenticated connector, or remove the base image connector.")
-		}
-		if p.BaseImagePassword == "" {
-			fmt.Printf("Password cannot be empty. The base image connector requires authenticated access. Please either use an authenticated connector, or remove the base image connector.")
-		}
-		var baseConnectorLogin Login
-		baseConnectorLogin.Registry = p.BaseImageRegistry
-		baseConnectorLogin.Username = p.BaseImageUsername
-		baseConnectorLogin.Password = p.BaseImagePassword
-
-		cmd := commandLogin(baseConnectorLogin)
-
-		raw, err := cmd.CombinedOutput()
-		if err != nil {
-			out := string(raw)
-			out = strings.Replace(out, "WARNING! Using --password via the CLI is insecure. Use --password-stdin.", "", -1)
-			fmt.Println(out)
-			return fmt.Errorf("Error authenticating base connector: exit status 1")
-		}
-
-	} else {
-		fmt.Println("\033[33mTo ensure consistent and reliable pipeline execution, we recommend setting up a Base Image Connector.\033[0m\n" +
-			"\033[33mWhile optional at this time, configuring it helps prevent failures caused by Docker Hub's rate limits.\033[0m")
-	}
-	// login to the Docker registry
-	if p.Login.Password != "" {
-		cmd := commandLogin(p.Login)
-		raw, err := cmd.CombinedOutput()
-		if err != nil {
-			out := string(raw)
-			out = strings.Replace(out, "WARNING! Using --password via the CLI is insecure. Use --password-stdin.", "", -1)
-			fmt.Println(out)
-			return fmt.Errorf("Error authenticating: exit status 1")
-		}
-	} else if p.Login.AccessToken != "" {
-		cmd := commandLoginAccessToken(p.Login, p.Login.AccessToken)
-		output, err := cmd.CombinedOutput()
-		if err != nil {
-			return fmt.Errorf("error logging in to Docker registry: %s", err)
-		}
-		if strings.Contains(string(output), "Login Succeeded") {
-			fmt.Println("Login successful")
-		} else {
-			return fmt.Errorf("login did not succeed")
-		}
+	if err := p.authenticate(); err != nil {
+		return err
 	}
 
 	// cache export feature is currently not supported for docker driver hence we have to create docker-container driver
@@ -582,6 +506,123 @@ func getDigest(metadataFile string) (string, error) {
 	return "", fmt.Errorf("containerimage.digest not found in metadata json")
 }
 
+func (p Plugin) authenticate() error {
+	if p.artifactoryOIDC != nil {
+		defer func() {
+			p.artifactoryOIDC.Username = ""
+			p.artifactoryOIDC.AccessToken = ""
+		}()
+	}
+
+	switch {
+	case p.artifactoryOIDC != nil:
+		fmt.Println("Detected Artifactory OIDC credentials")
+	case p.Login.Password != "" && p.Login.Config != "":
+		fmt.Println("Detected registry credentials and registry credentials file")
+	case p.Login.Password != "":
+		fmt.Println("Detected registry credentials")
+	case p.Login.Config != "":
+		fmt.Println("Detected registry credentials file")
+	case p.Login.AccessToken != "":
+		fmt.Println("Detected access token")
+	default:
+		fmt.Println("Registry credentials or Docker config not provided. Guest mode enabled.")
+	}
+
+	if p.Login.Config != "" {
+		configDirectory := os.Getenv("DOCKER_CONFIG")
+		if configDirectory == "" {
+			configDirectory = dockerHome
+		}
+		if err := os.MkdirAll(configDirectory, 0700); err != nil {
+			return fmt.Errorf("error creating Docker config directory: %w", err)
+		}
+
+		var content []byte
+		var jsonTest interface{}
+		if json.Unmarshal([]byte(p.Login.Config), &jsonTest) == nil {
+			content = []byte(p.Login.Config)
+		} else if _, err := os.Stat(p.Login.Config); err == nil {
+			data, err := os.ReadFile(p.Login.Config)
+			if err != nil {
+				return fmt.Errorf("error reading Docker config file %q: %w", p.Login.Config, err)
+			}
+			content = data
+		} else {
+			return fmt.Errorf("Docker config must be either valid JSON content or a path to an existing config file")
+		}
+		if err := os.WriteFile(filepath.Join(configDirectory, "config.json"), content, 0600); err != nil {
+			return fmt.Errorf("error writing config.json: %w", err)
+		}
+	}
+
+	skipBaseImageLogin := p.artifactoryOIDC != nil && p.artifactoryOIDC.SameOriginBaseImage
+	if p.BaseImageRegistry != "" && !skipBaseImageLogin {
+		if p.BaseImageUsername == "" {
+			fmt.Print("Username cannot be empty. The base image connector requires authenticated access. Please either use an authenticated connector, or remove the base image connector.")
+		}
+		if p.BaseImagePassword == "" {
+			fmt.Print("Password cannot be empty. The base image connector requires authenticated access. Please either use an authenticated connector, or remove the base image connector.")
+		}
+		baseConnectorLogin := Login{
+			Registry: p.BaseImageRegistry,
+			Username: p.BaseImageUsername,
+			Password: p.BaseImagePassword,
+		}
+		raw, err := runLoginCommand(commandLogin(baseConnectorLogin))
+		if err != nil {
+			out := strings.ReplaceAll(
+				string(raw),
+				"WARNING! Using --password via the CLI is insecure. Use --password-stdin.",
+				"",
+			)
+			fmt.Println(out)
+			return fmt.Errorf("error authenticating base connector: exit status 1")
+		}
+	} else if p.BaseImageRegistry == "" {
+		fmt.Println("\033[33mTo ensure consistent and reliable pipeline execution, we recommend setting up a Base Image Connector.\033[0m\n" +
+			"\033[33mWhile optional at this time, configuring it helps prevent failures caused by Docker Hub's rate limits.\033[0m")
+	}
+
+	if p.artifactoryOIDC != nil {
+		for _, registry := range p.artifactoryOIDC.Registries {
+			login := Login{Registry: registry, Username: p.artifactoryOIDC.Username}
+			if _, err := runLoginCommand(commandLoginPasswordStdin(login, p.artifactoryOIDC.AccessToken)); err != nil {
+				fmt.Printf("Failed to authenticate to Artifactory registry %q: %v\n", registry, err)
+				return fmt.Errorf("error authenticating to Artifactory registry %q", registry)
+			}
+		}
+		configDirectory := os.Getenv("DOCKER_CONFIG")
+		if err := os.Chmod(filepath.Join(configDirectory, "config.json"), 0600); err != nil {
+			return fmt.Errorf("error securing Docker config file: %w", err)
+		}
+		return nil
+	}
+
+	if p.Login.Password != "" {
+		raw, err := runLoginCommand(commandLogin(p.Login))
+		if err != nil {
+			out := strings.ReplaceAll(
+				string(raw),
+				"WARNING! Using --password via the CLI is insecure. Use --password-stdin.",
+				"",
+			)
+			fmt.Println(out)
+			return fmt.Errorf("error authenticating: exit status 1")
+		}
+	} else if p.Login.AccessToken != "" {
+		output, err := runLoginCommand(commandLoginAccessToken(p.Login, p.Login.AccessToken))
+		if err != nil {
+			return fmt.Errorf("error logging in to Docker registry: %w", err)
+		}
+		if !strings.Contains(string(output), "Login Succeeded") {
+			return fmt.Errorf("login did not succeed")
+		}
+		fmt.Println("Login successful")
+	}
+	return nil
+}
+
 // helper function to create the docker login command.
 func commandLogin(login Login) *exec.Cmd {
 	loginCopy := login
@@ -599,6 +640,17 @@ func commandLogin(login Login) *exec.Cmd {
 		"-p", loginCopy.Password,
 		loginCopy.Registry,
 	)
+}
+
+func commandLoginPasswordStdin(login Login, password string) *exec.Cmd {
+	cmd := exec.Command(
+		dockerExe, "login",
+		"-u", login.Username,
+		"--password-stdin",
+		login.Registry,
+	)
+	cmd.Stdin = strings.NewReader(password)
+	return cmd
 }
 
 // helper function to set the credentials

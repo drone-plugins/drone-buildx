@@ -1,16 +1,42 @@
 package docker
 
 import (
+	"context"
+	"fmt"
+	"net/http"
 	"os"
+	"path/filepath"
+	"runtime"
+	"strings"
+	"time"
 
 	"github.com/drone-plugins/drone-plugin-lib/drone"
 	"github.com/joho/godotenv"
 	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli"
+
+	"github.com/drone-plugins/drone-buildx/internal/artifactory"
 )
 
 var (
 	version = "unknown"
+
+	exchangeArtifactoryOIDCCredential = func(
+		ctx context.Context,
+		client *http.Client,
+		endpoint string,
+		idToken string,
+		providerName string,
+		projectKey string,
+	) (artifactory.Credential, error) {
+		return (artifactory.ExchangeClient{HTTPClient: client}).Exchange(
+			ctx,
+			endpoint,
+			idToken,
+			providerName,
+			projectKey,
+		)
+	}
 )
 
 func Run() {
@@ -276,6 +302,21 @@ func Run() {
 			Name:   "docker.config",
 			Usage:  "docker json dockerconfig content",
 			EnvVar: "PLUGIN_CONFIG,DOCKER_PLUGIN_CONFIG",
+		},
+		cli.StringFlag{
+			Name:   "url",
+			Usage:  "JFrog Artifactory URL for OIDC authentication",
+			EnvVar: "PLUGIN_URL",
+		},
+		cli.StringFlag{
+			Name:   "artifactory-oidc-provider-name",
+			Usage:  "JFrog OIDC provider name",
+			EnvVar: "ARTIFACTORY_OIDC_PROVIDER_NAME",
+		},
+		cli.StringFlag{
+			Name:   "artifactory-oidc-project-key",
+			Usage:  "JFrog OIDC project key",
+			EnvVar: "ARTIFACTORY_OIDC_PROJECT_KEY",
 		},
 		cli.BoolTFlag{
 			Name:   "docker.purge",
@@ -635,5 +676,163 @@ func run(c *cli.Context) error {
 		}
 	}
 
+	if err := configureArtifactoryOIDC(context.Background(), c, &plugin); err != nil {
+		return err
+	}
+	if plugin.artifactoryOIDC != nil {
+		// docker login stores the JFrog access token in config.json. Remove it
+		// when the step ends, including when execution fails.
+		defer removeDockerConfigFile()
+	}
 	return plugin.Exec()
+}
+
+func removeDockerConfigFile() {
+	path := filepath.Join(os.Getenv("DOCKER_CONFIG"), "config.json")
+	if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
+		logrus.Warnf("could not remove Docker config file %q: %v", path, err)
+	}
+}
+
+func configureArtifactoryOIDC(
+	ctx context.Context,
+	c *cli.Context,
+	plugin *Plugin,
+) error {
+	inputs := artifactory.Inputs{
+		ServerURL:            c.String("url"),
+		IDToken:              os.Getenv("ARTIFACTORY_OIDC_TOKEN"),
+		ProviderName:         c.String("artifactory-oidc-provider-name"),
+		ProjectKey:           c.String("artifactory-oidc-project-key"),
+		Registry:             plugin.Login.Registry,
+		Repository:           plugin.Build.Repo,
+		DockerConfigOverride: plugin.Login.Config,
+		Username:             plugin.Login.Username,
+		Password:             plugin.Login.Password,
+		BaseImageRegistry:    plugin.BaseImageRegistry,
+		BaseImageUsername:    plugin.BaseImageUsername,
+		BaseImagePassword:    plugin.BaseImagePassword,
+		CacheRepositories:    registryCacheRepositories(plugin.Build.CacheFrom, plugin.Build.CacheTo),
+	}
+	if !artifactory.HasOIDCInputs(inputs) {
+		return nil
+	}
+	if err := validateSecureDockerConfigDirectory(os.Getenv("DOCKER_CONFIG")); err != nil {
+		return err
+	}
+	if err := artifactory.ValidateInputs(inputs); err != nil {
+		return err
+	}
+	destination, err := artifactory.ValidateDestination(
+		inputs.ServerURL,
+		inputs.Registry,
+		inputs.Repository,
+	)
+	if err != nil {
+		return err
+	}
+	endpoint, err := artifactory.ResolveTokenEndpoint(inputs.ServerURL)
+	if err != nil {
+		return err
+	}
+	credential, err := exchangeArtifactoryOIDCCredential(
+		ctx,
+		&http.Client{
+			Transport: http.DefaultTransport.(*http.Transport).Clone(),
+			Timeout:   30 * time.Second,
+		},
+		endpoint,
+		inputs.IDToken,
+		inputs.ProviderName,
+		inputs.ProjectKey,
+	)
+	if err != nil {
+		return err
+	}
+
+	registries := []string{destination.Registry}
+	for _, repository := range inputs.CacheRepositories {
+		sameOrigin, err := artifactory.RepositoryMatchesServerOrigin(
+			inputs.ServerURL,
+			repository,
+		)
+		if err != nil {
+			return fmt.Errorf("invalid cache repository: %w", err)
+		}
+		if sameOrigin {
+			authority := strings.SplitN(repository, "/", 2)[0]
+			if !containsString(registries, authority) {
+				registries = append(registries, authority)
+			}
+		}
+	}
+
+	sameOriginBaseImage := false
+	if inputs.BaseImageRegistry != "" {
+		sameOriginBaseImage, err = artifactory.RegistryMatchesServerOrigin(
+			inputs.ServerURL,
+			inputs.BaseImageRegistry,
+		)
+		if err != nil {
+			return err
+		}
+	}
+
+	plugin.artifactoryOIDC = &preparedArtifactoryOIDC{
+		Registries:          registries,
+		Username:            credential.Username,
+		AccessToken:         credential.AccessToken,
+		SameOriginBaseImage: sameOriginBaseImage,
+	}
+	return nil
+}
+
+func registryCacheRepositories(cacheLists ...[]string) []string {
+	var repositories []string
+	for _, cacheList := range cacheLists {
+		for _, cache := range cacheList {
+			options := strings.Split(cache, ",")
+			registryCache := false
+			repository := ""
+			for _, option := range options {
+				key, value, found := strings.Cut(option, "=")
+				if !found {
+					continue
+				}
+				switch strings.TrimSpace(key) {
+				case "type":
+					registryCache = strings.TrimSpace(value) == "registry"
+				case "ref":
+					repository = strings.TrimSpace(value)
+				}
+			}
+			if registryCache && repository != "" {
+				repositories = append(repositories, repository)
+			}
+		}
+	}
+	return repositories
+}
+
+func validateSecureDockerConfigDirectory(path string) error {
+	if path == "" {
+		return fmt.Errorf("secure Docker config directory is required for JFrog OIDC")
+	}
+	info, err := os.Stat(path)
+	if err != nil || !info.IsDir() {
+		return fmt.Errorf("secure Docker config directory is unavailable for JFrog OIDC")
+	}
+	if runtime.GOOS != "windows" && info.Mode().Perm() != 0700 {
+		return fmt.Errorf("secure Docker config directory must use 0700 permissions for JFrog OIDC")
+	}
+	return nil
+}
+
+func containsString(values []string, candidate string) bool {
+	for _, value := range values {
+		if value == candidate {
+			return true
+		}
+	}
+	return false
 }
