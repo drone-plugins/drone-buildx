@@ -103,7 +103,7 @@ pipeline:
                       identifier: Docker_Build_Push
                       spec:
                         connectorRef: Plugins_Docker_Hub_Connector
-                        image: plugins/docker:18
+                        image: plugins/docker
                         settings:
                           pull_image: true
                           no_cache: true
@@ -196,7 +196,7 @@ pipeline:
                       identifier: Docker_Build_Push
                       spec:
                         connectorRef: Plugins_Docker_Hub_Connector
-                        image: plugins/docker:18
+                        image: plugins/docker
                         settings:
                           pull_image: true
                           no_cache: true
@@ -289,7 +289,7 @@ pipeline:
                       identifier: Plugin_1
                       spec:
                         connectorRef: Plugins_Docker_Hub_Connector
-                        image: plugins/docker:18
+                        image: plugins/docker
                         settings:
                           pull_image: true
                           no_cache: true
@@ -382,7 +382,7 @@ pipeline:
                       identifier: Docker_Build_Push
                       spec:
                         connectorRef: Plugins_Docker_Hub_Connector
-                        image: plugins/docker:18
+                        image: plugins/docker
                         settings:
                           pull_image: true
                           no_cache: true
