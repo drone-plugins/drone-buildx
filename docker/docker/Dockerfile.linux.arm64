@@ -1,5 +1,12 @@
-FROM arm64v8/docker:29.9.0-dind
+FROM harness0.harness.io/oci/docker_artifacts/hhi/harnessos-alpine:1@sha256:290a37c85b4284d2c11fa0778e5da79643d912a1f5a57d6f701b77644503b7e7 AS hhi-ca-certificates
+RUN apk add --no-cache 'ca-certificates>=20261020-r0'
 
+FROM arm64v8/docker:29.9.2-dind@sha256:60be81bdce8ed204e6bd2bfa485a0016018ed978dea1bf01a44a24385d2f86e7
+COPY --from=hhi-ca-certificates /usr/share/ca-certificates/ /usr/share/ca-certificates/
+COPY --from=hhi-ca-certificates /etc/ca-certificates.conf /etc/ca-certificates.conf
+RUN rm -f /usr/share/ca-certificates/mozilla/AAA_Certificate_Services.crt /usr/share/ca-certificates/mozilla/Comodo_AAA_Services_root.crt /usr/share/ca-certificates/mozilla/emSign_ECC_Root_CA_-_G3.crt \
+    && printf '%s\n' '!mozilla/AAA_Certificate_Services.crt' '!mozilla/Comodo_AAA_Services_root.crt' '!mozilla/emSign_ECC_Root_CA_-_G3.crt' >> /etc/ca-certificates.conf \
+    && update-ca-certificates --fresh
 ENV DOCKER_HOST=unix:///var/run/docker.sock
 
 ENV DOCKER_BUILDKIT=1
@@ -7,7 +14,7 @@ ENV BUILDKIT_PROGRESS=plain
 ENV DOCKER_CLI_EXPERIMENTAL=enabled
 ENV PLUGIN_BUILDKIT_ASSETS_DIR=/buildkit
 
-ARG BUILDX_URL=https://github.com/docker/buildx/releases/download/v0.38.0/buildx-v0.38.0.linux-arm64
+ARG BUILDX_URL=https://github.com/docker/buildx/releases/download/v0.38.1/buildx-v0.38.1.linux-arm64
 
 RUN mkdir -p $HOME/.docker/cli-plugins && \
     wget -O $HOME/.docker/cli-plugins/docker-buildx $BUILDX_URL && \
