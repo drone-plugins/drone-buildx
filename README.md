@@ -129,11 +129,20 @@ docker run --rm \
 
 Use PLUGIN_BUILDX_OPTIONS
 
+The plugin defaults to `--provenance=false` so single-arch pushes publish an image
+manifest (not an OCI index with attestations). To opt into buildx provenance or
+other attestations, pass them explicitly:
+
+```console
+envVariables:
+  PLUGIN_BUILDX_OPTIONS: "--provenance=true, --platform=linux/amd64"
+```
+
 You can pass all buildx supported flags together using the PLUGIN_BUILDX_OPTIONS environment variable:
 
 ```console
 envVariables:
-  PLUGIN_BUILDX_OPTIONS: "--provenance=false, --platform=linux/amd64"
+  PLUGIN_BUILDX_OPTIONS: "--provenance=mode=max, --platform=linux/amd64"
 ```
 
 #### For options with comma values
