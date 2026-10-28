@@ -697,17 +697,15 @@ func commandBuildx(build Build, builder Builder, dryrun bool, metadataFile strin
 	} else {
 		args = append(args, "--push")
 	}
-	if len(build.BuildxOptions) > 0 {
-		args = append(args, build.BuildxOptions...)
+	userOpts := collectBuildxUserOptions(build)
+	// Disable buildx's default provenance attestation unless the user opts in.
+	// Default attestations wrap single-arch pushes in an OCI index (image +
+	// unknown/unknown attestation), which breaks digest pinning, HAR, and
+	// runtimes that reject attestation indexes (CI-25647).
+	if !hasAttestationOpt(userOpts...) {
+		args = append(args, "--provenance=false")
 	}
-	if build.BuildxOptionsSemicolon != "" {
-		splitOptions := strings.Split(build.BuildxOptionsSemicolon, ";")
-		for _, opt := range splitOptions {
-			if opt = strings.TrimSpace(opt); opt != "" {
-				args = append(args, opt)
-			}
-		}
-	}
+	args = append(args, userOpts...)
 	args = append(args, build.Context)
 	if metadataFile != "" {
 		args = append(args, "--metadata-file", metadataFile)
@@ -818,6 +816,7 @@ func commandBuildxBake(build Build, builder Builder, dryrun bool, metadataFile s
 		args = append(args, "--metadata-file", metadataFile)
 	}
 
+	var bakeOpts []string
 	if build.BakeOptions != "" {
 		tokens := strings.Split(build.BakeOptions, ";")
 		for _, t := range tokens {
@@ -828,11 +827,50 @@ func commandBuildxBake(build Build, builder Builder, dryrun bool, metadataFile s
 			if t == "--push" || t == "--load" {
 				continue
 			}
-			args = append(args, t)
+			bakeOpts = append(bakeOpts, t)
 		}
 	}
+	if !hasAttestationOpt(bakeOpts...) {
+		args = append(args, "--provenance=false")
+	}
+	args = append(args, bakeOpts...)
 
 	return exec.Command(dockerExe, args...)
+}
+
+// collectBuildxUserOptions returns PLUGIN_BUILDX_OPTIONS and semicolon options
+// in the order they are applied on the buildx build command.
+func collectBuildxUserOptions(build Build) []string {
+	var opts []string
+	if len(build.BuildxOptions) > 0 {
+		opts = append(opts, build.BuildxOptions...)
+	}
+	if build.BuildxOptionsSemicolon != "" {
+		for _, opt := range strings.Split(build.BuildxOptionsSemicolon, ";") {
+			if opt = strings.TrimSpace(opt); opt != "" {
+				opts = append(opts, opt)
+			}
+		}
+	}
+	return opts
+}
+
+// hasAttestationOpt reports whether the user already configured provenance or
+// attest flags, so the plugin must not inject --provenance=false.
+func hasAttestationOpt(opts ...string) bool {
+	for _, opt := range opts {
+		opt = strings.TrimSpace(opt)
+		if opt == "" {
+			continue
+		}
+		if opt == "--provenance" || strings.HasPrefix(opt, "--provenance=") {
+			return true
+		}
+		if opt == "--attest" || strings.HasPrefix(opt, "--attest=") {
+			return true
+		}
+	}
+	return false
 }
 
 func replaceOrRemoveAzureCacheAttr(arg, attr, value string) string {
