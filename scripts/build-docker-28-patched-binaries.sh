@@ -5,8 +5,12 @@ set -euo pipefail
 readonly GO_REQUIRED_VERSION="go1.26.10"
 readonly MOBY_COMMIT="89c5e8fd66634b6128fc4c0e6f1236e2540e46e0"
 readonly DOCKER_CLI_COMMIT="ecc694264de6b34e4b59d16245603382f22fa813"
-readonly BUILDX_COMMIT="a32761aeb3debd39be1eca514af3693af0db334b"
+# buildx v0.33.0 is the first release that vendors google.golang.org/grpc >= v1.79.3
+# (CVE-2026-33186). It also pulls docker/cli v29.3.1 as a library dep (fixes
+# CVE-2025-15558 without requiring Docker Engine 29).
+readonly BUILDX_COMMIT="f7897eba028583e0071642db3c011e860444f8cf"
 readonly COMPOSE_COMMIT="49b1c1e932aecd3a4843b392162d4bd56021935e"
+readonly GRPC_MIN_VERSION="v1.79.3"
 
 readonly WORK_DIR="/tmp/docker-28-patched-build"
 readonly OUTPUT_DIR="/out"
@@ -35,14 +39,45 @@ verify_go_binary() {
   fi
 }
 
+# Force google.golang.org/grpc to the CVE-2026-33186 floor for module-based builds.
+bump_grpc_module() {
+  local module_dir="$1"
+
+  (
+    cd "${module_dir}"
+    go get "google.golang.org/grpc@${GRPC_MIN_VERSION}"
+    go mod tidy
+  )
+}
+
+# Moby / docker/cli keep deps in vendor.mod + vendor/. Promote vendor.mod to a
+# temporary go.mod, bump grpc, re-vendor, then restore vendor.mod/vendor.sum.
+bump_grpc_vendor() {
+  local module_dir="$1"
+
+  (
+    cd "${module_dir}"
+    cp -f vendor.mod go.mod
+    cp -f vendor.sum go.sum
+    go get "google.golang.org/grpc@${GRPC_MIN_VERSION}"
+    go mod tidy
+    go mod vendor
+    cp -f go.mod vendor.mod
+    cp -f go.sum vendor.sum
+    rm -f go.mod go.sum
+  )
+}
+
 mkdir -p "${WORK_DIR}" "${OUTPUT_DIR}"
 test "$(go env GOVERSION)" = "${GO_REQUIRED_VERSION}"
 export GOTOOLCHAIN=local
 
 # Rebuild the Docker 28.5.2 daemon and its exact bundled runtime versions.
 # Moby v28.5.2 pins containerd v1.7.28 and runc v1.3.3 in its Dockerfile.
+# Additionally bump vendored grpc to clear CVE-2026-33186 while staying on 28.5.2.
 fetch_source https://github.com/moby/moby.git refs/tags/v28.5.2 \
   "${MOBY_COMMIT}" "${WORK_DIR}/moby"
+bump_grpc_vendor "${WORK_DIR}/moby"
 (
   cd "${WORK_DIR}/moby"
   GO111MODULE=off \
@@ -75,32 +110,38 @@ fetch_source https://github.com/opencontainers/runc.git \
 )
 install -m 0755 "${WORK_DIR}/runc/runc" "${OUTPUT_DIR}/runc"
 
-# Preserve the Docker 28 CLI and bundled plugin versions while rebuilding them
-# with the incident-patched Go toolchain.
+# Preserve the Docker 28 CLI while rebuilding with the patched Go toolchain and
+# a grpc floor that clears CVE-2026-33186.
 readonly CLI_GOPATH="${WORK_DIR}/docker-cli-gopath"
 readonly CLI_SOURCE="${CLI_GOPATH}/src/github.com/docker/cli"
 fetch_source https://github.com/docker/cli.git refs/tags/v28.5.2 \
   "${DOCKER_CLI_COMMIT}" "${CLI_SOURCE}"
+if [[ -f "${CLI_SOURCE}/vendor.mod" ]]; then
+  bump_grpc_vendor "${CLI_SOURCE}"
+fi
 (
   cd "${CLI_SOURCE}"
   GOPATH="${CLI_GOPATH}" DISABLE_WARN_OUTSIDE_CONTAINER=1 VERSION=28.5.2 make binary
 )
 install -m 0755 "${CLI_SOURCE}/build/docker" "${OUTPUT_DIR}/docker"
 
-fetch_source https://github.com/docker/buildx.git refs/tags/v0.29.1 \
+fetch_source https://github.com/docker/buildx.git refs/tags/v0.33.0 \
   "${BUILDX_COMMIT}" "${WORK_DIR}/buildx"
 (
   cd "${WORK_DIR}/buildx"
   CGO_ENABLED=0 \
     DESTDIR="${OUTPUT_DIR}" \
-    VERSION=v0.29.1 \
+    VERSION=v0.33.0 \
     REVISION="${BUILDX_COMMIT}" \
     GO_EXTRA_LDFLAGS="-s -w" \
     ./hack/build
 )
 
+# Compose v2.40.3 still vendors grpc < 1.79.3; bump in-tree before build rather
+# than jumping to Compose v5 (major). Official Compose >= v5.2.0 also clears this.
 fetch_source https://github.com/docker/compose.git refs/tags/v2.40.3 \
   "${COMPOSE_COMMIT}" "${WORK_DIR}/compose"
+bump_grpc_module "${WORK_DIR}/compose"
 (
   cd "${WORK_DIR}/compose"
   CGO_ENABLED=0 VERSION=v2.40.3 DESTDIR="${OUTPUT_DIR}" make build

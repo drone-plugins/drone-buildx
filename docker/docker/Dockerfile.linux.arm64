@@ -10,16 +10,34 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 COPY scripts/build-docker-28-patched-binaries.sh /usr/local/bin/
 RUN bash /usr/local/bin/build-docker-28-patched-binaries.sh
-RUN CGO_ENABLED=0 GOTOOLCHAIN=local GOBIN=/out go install -trimpath \
-    -ldflags "-s -w -X sigs.k8s.io/release-utils/version.gitVersion=v2.6.5" \
-    github.com/sigstore/cosign/v2/cmd/cosign@v2.6.5
+# Cosign v2.6.5 vendors grpc < 1.79.3 (CVE-2026-33186). Clone and bump grpc
+# instead of jumping to cosign v3 (major). Rebuild with patched Go 1.26.10.
+RUN git clone --depth 1 --branch v2.6.5 https://github.com/sigstore/cosign.git /tmp/cosign \
+    && cd /tmp/cosign \
+    && go get google.golang.org/grpc@v1.79.3 \
+    && go mod tidy \
+    && CGO_ENABLED=0 GOTOOLCHAIN=local GOBIN=/out go install -trimpath \
+        -ldflags "-s -w -X sigs.k8s.io/release-utils/version.gitVersion=v2.6.5" \
+        ./cmd/cosign \
+    && rm -rf /tmp/cosign
 
 # Keep Docker 28 DinD behavior (overlay2, no Engine 29 containerd-store /
 # API / attestation defaults) while replacing bundled Go binaries with a
 # source-identical build from the incident-patched Go toolchain (matches
 # drone-docker; avoids CI-22663 / CI-22901 class regressions).
 FROM arm64v8/docker:28.5.2-dind
-RUN apk add --no-cache 'ca-certificates>=20261020-r0'
+# Stay on Docker Engine 28.x / Alpine 3.22; refresh OS packages to clear
+# openssl (CVE-2026-31789 needs >=3.5.6) and related Critical/High Alpine findings.
+RUN apk upgrade --no-cache \
+    && apk add --no-cache \
+        'ca-certificates>=20261020-r0' \
+        'openssl>=3.5.6-r0' \
+        'libcrypto3>=3.5.6-r0' \
+        'libssl3>=3.5.6-r0' \
+        'c-ares>=1.34.8-r0' \
+        'libcurl>=8.14.1-r4' \
+        'expat>=2.7.4-r0' \
+        'libexpat>=2.7.4-r0'
 
 ENV DOCKER_HOST=unix:///var/run/docker.sock
 
