@@ -127,14 +127,13 @@ install -m 0755 "${CLI_SOURCE}/build/docker" "${OUTPUT_DIR}/docker"
 
 fetch_source https://github.com/docker/buildx.git refs/tags/v0.33.0 \
   "${BUILDX_COMMIT}" "${WORK_DIR}/buildx"
+# buildx >= v0.33 dropped hack/build in favour of bake; build the plugin
+# binary directly so the patched-tools stage stays self-contained.
 (
   cd "${WORK_DIR}/buildx"
-  CGO_ENABLED=0 \
-    DESTDIR="${OUTPUT_DIR}" \
-    VERSION=v0.33.0 \
-    REVISION="${BUILDX_COMMIT}" \
-    GO_EXTRA_LDFLAGS="-s -w" \
-    ./hack/build
+  CGO_ENABLED=0 go build -mod=vendor -trimpath \
+    -ldflags "-s -w -X github.com/docker/buildx/version.Version=v0.33.0 -X github.com/docker/buildx/version.Revision=${BUILDX_COMMIT}" \
+    -o "${OUTPUT_DIR}/docker-buildx" ./cmd/buildx
 )
 
 # Compose v2.40.3 still vendors grpc < 1.79.3; bump in-tree before build rather
