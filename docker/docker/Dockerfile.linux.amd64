@@ -10,9 +10,6 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 COPY scripts/build-docker-28-patched-binaries.sh /usr/local/bin/
 RUN bash /usr/local/bin/build-docker-28-patched-binaries.sh
-RUN CGO_ENABLED=0 GOTOOLCHAIN=local GOBIN=/out go install -trimpath \
-    -ldflags "-s -w -X sigs.k8s.io/release-utils/version.gitVersion=v2.6.5" \
-    github.com/sigstore/cosign/v2/cmd/cosign@v2.6.5
 
 # Keep Docker 28 DinD behavior (overlay2, no Engine 29 containerd-store /
 # API / attestation defaults) while replacing bundled Go binaries with a
@@ -39,7 +36,6 @@ COPY --from=patched-tools \
     /usr/local/bin/
 COPY --from=patched-tools /out/docker-buildx /usr/local/libexec/docker/cli-plugins/docker-buildx
 COPY --from=patched-tools /out/docker-compose /usr/local/libexec/docker/cli-plugins/docker-compose
-COPY --from=patched-tools /out/cosign /usr/local/bin/cosign
 
 # Create /buildkit directory
 RUN mkdir -p /buildkit
