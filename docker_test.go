@@ -1,12 +1,249 @@
 package docker
 
 import (
+	"errors"
+	"io"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
 )
+
+func TestCommandLoginArtifactoryOIDCUsesPasswordStdin(t *testing.T) {
+	cmd := commandLoginPasswordStdin(
+		Login{Registry: "jfrog.example.com", Username: "oidc-user"},
+		"secret-access-token",
+	)
+
+	arguments := strings.Join(cmd.Args, " ")
+	if strings.Contains(arguments, "secret-access-token") {
+		t.Fatalf("command arguments expose access token: %q", arguments)
+	}
+	if containsArgument(cmd.Args, "-p") || !containsArgument(cmd.Args, "--password-stdin") {
+		t.Fatalf("command arguments do not use password stdin: %q", arguments)
+	}
+	stdin, err := io.ReadAll(cmd.Stdin)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(stdin) != "secret-access-token" {
+		t.Fatalf("stdin = %q", stdin)
+	}
+}
+
+func containsArgument(arguments []string, want string) bool {
+	for _, argument := range arguments {
+		if argument == want {
+			return true
+		}
+	}
+	return false
+}
+
+func TestAuthenticateArtifactoryOIDCSkipsSameOriginBaseLogin(t *testing.T) {
+	dockerConfig := t.TempDir()
+	if err := os.Chmod(dockerConfig, 0700); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("DOCKER_CONFIG", dockerConfig)
+
+	originalRun := runLoginCommand
+	t.Cleanup(func() { runLoginCommand = originalRun })
+	var commands []*exec.Cmd
+	runLoginCommand = func(cmd *exec.Cmd) ([]byte, error) {
+		commands = append(commands, cmd)
+		if err := os.WriteFile(
+			filepath.Join(dockerConfig, "config.json"),
+			[]byte(`{"auths":{}}`),
+			0666,
+		); err != nil {
+			t.Fatal(err)
+		}
+		return []byte("Login Succeeded"), nil
+	}
+
+	plugin := Plugin{
+		BaseImageRegistry: "https://jfrog.example.com/v2/",
+		artifactoryOIDC: &preparedArtifactoryOIDC{
+			Registries:          []string{"jfrog.example.com"},
+			Username:            "oidc-user",
+			AccessToken:         "secret-access-token",
+			SameOriginBaseImage: true,
+		},
+	}
+	if err := plugin.authenticate(); err != nil {
+		t.Fatalf("authenticate() error = %v", err)
+	}
+	if len(commands) != 1 {
+		t.Fatalf("login command count = %d, want 1", len(commands))
+	}
+	if got := commands[0].Args[len(commands[0].Args)-1]; got != "jfrog.example.com" {
+		t.Fatalf("login registry = %q", got)
+	}
+	info, err := os.Stat(filepath.Join(dockerConfig, "config.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := info.Mode().Perm(); got != 0600 {
+		t.Fatalf("config.json permissions = %04o, want 0600", got)
+	}
+}
+
+func TestAuthenticateArtifactoryOIDCPreservesDifferentOriginBaseLogin(t *testing.T) {
+	dockerConfig := t.TempDir()
+	if err := os.Chmod(dockerConfig, 0700); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("DOCKER_CONFIG", dockerConfig)
+
+	originalRun := runLoginCommand
+	t.Cleanup(func() { runLoginCommand = originalRun })
+	var commands []*exec.Cmd
+	runLoginCommand = func(cmd *exec.Cmd) ([]byte, error) {
+		commands = append(commands, cmd)
+		if err := os.WriteFile(
+			filepath.Join(dockerConfig, "config.json"),
+			[]byte(`{"auths":{}}`),
+			0600,
+		); err != nil {
+			t.Fatal(err)
+		}
+		return []byte("Login Succeeded"), nil
+	}
+
+	plugin := Plugin{
+		BaseImageRegistry: "https://index.docker.io/v1/",
+		BaseImageUsername: "base-user",
+		BaseImagePassword: "base-password",
+		artifactoryOIDC: &preparedArtifactoryOIDC{
+			Registries:  []string{"jfrog.example.com"},
+			Username:    "oidc-user",
+			AccessToken: "secret-access-token",
+		},
+	}
+	if err := plugin.authenticate(); err != nil {
+		t.Fatalf("authenticate() error = %v", err)
+	}
+	if len(commands) != 2 {
+		t.Fatalf("login command count = %d, want 2", len(commands))
+	}
+	if got := commands[0].Args[len(commands[0].Args)-1]; got != v1RegistryURL {
+		t.Fatalf("base-image login registry = %q", got)
+	}
+	if got := commands[1].Args[len(commands[1].Args)-1]; got != "jfrog.example.com" {
+		t.Fatalf("OIDC login registry = %q", got)
+	}
+	if strings.Contains(strings.Join(commands[1].Args, " "), "secret-access-token") {
+		t.Fatal("OIDC login command arguments expose access token")
+	}
+}
+
+func TestAuthenticateArtifactoryOIDCStopsOnLoginFailure(t *testing.T) {
+	dockerConfig := t.TempDir()
+	if err := os.Chmod(dockerConfig, 0700); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("DOCKER_CONFIG", dockerConfig)
+
+	originalRun := runLoginCommand
+	t.Cleanup(func() { runLoginCommand = originalRun })
+	calls := 0
+	runLoginCommand = func(*exec.Cmd) ([]byte, error) {
+		calls++
+		return []byte("response containing secret-access-token"), errors.New("login failed")
+	}
+	plugin := Plugin{
+		artifactoryOIDC: &preparedArtifactoryOIDC{
+			Registries:  []string{"jfrog.example.com", "jfrog.example.com:443"},
+			Username:    "oidc-user",
+			AccessToken: "secret-access-token",
+		},
+	}
+	err := plugin.authenticate()
+	if err == nil {
+		t.Fatal("authenticate() error = nil, want login error")
+	}
+	if strings.Contains(err.Error(), "secret-access-token") {
+		t.Fatalf("authenticate() error exposes token: %v", err)
+	}
+	if calls != 1 {
+		t.Fatalf("login command count = %d, want 1", calls)
+	}
+}
+
+func TestAuthenticatePreservesNonOIDCMethods(t *testing.T) {
+	originalRun := runLoginCommand
+	t.Cleanup(func() { runLoginCommand = originalRun })
+
+	t.Run("username and password", func(t *testing.T) {
+		var command *exec.Cmd
+		runLoginCommand = func(cmd *exec.Cmd) ([]byte, error) {
+			command = cmd
+			return []byte("Login Succeeded"), nil
+		}
+		plugin := Plugin{Login: Login{
+			Registry: "registry.example.com",
+			Username: "user",
+			Password: "password",
+		}}
+		if err := plugin.authenticate(); err != nil {
+			t.Fatalf("authenticate() error = %v", err)
+		}
+		if command == nil || !containsArgument(command.Args, "-p") {
+			t.Fatalf("username/password login command = %#v", command)
+		}
+	})
+
+	t.Run("access token", func(t *testing.T) {
+		var command *exec.Cmd
+		runLoginCommand = func(cmd *exec.Cmd) ([]byte, error) {
+			command = cmd
+			return []byte("Login Succeeded"), nil
+		}
+		plugin := Plugin{Login: Login{
+			Registry:    "registry.example.com",
+			AccessToken: "access-token",
+		}}
+		if err := plugin.authenticate(); err != nil {
+			t.Fatalf("authenticate() error = %v", err)
+		}
+		if command == nil || !containsArgument(command.Args, "--password-stdin") {
+			t.Fatalf("access-token login command = %#v", command)
+		}
+	})
+
+	t.Run("Docker config", func(t *testing.T) {
+		dockerConfig := t.TempDir()
+		t.Setenv("DOCKER_CONFIG", dockerConfig)
+		runLoginCommand = func(*exec.Cmd) ([]byte, error) {
+			t.Fatal("unexpected Docker login")
+			return nil, nil
+		}
+		plugin := Plugin{Login: Login{Config: `{"auths":{"registry.example.com":{}}}`}}
+		if err := plugin.authenticate(); err != nil {
+			t.Fatalf("authenticate() error = %v", err)
+		}
+		info, err := os.Stat(filepath.Join(dockerConfig, "config.json"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got := info.Mode().Perm(); got != 0600 {
+			t.Fatalf("config.json permissions = %04o, want 0600", got)
+		}
+	})
+
+	t.Run("guest", func(t *testing.T) {
+		runLoginCommand = func(*exec.Cmd) ([]byte, error) {
+			t.Fatal("unexpected Docker login")
+			return nil, nil
+		}
+		if err := (Plugin{}).authenticate(); err != nil {
+			t.Fatalf("authenticate() error = %v", err)
+		}
+	})
+}
 
 func TestCommandBuildx(t *testing.T) {
 	tcs := []struct {
